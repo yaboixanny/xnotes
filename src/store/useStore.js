@@ -12,6 +12,7 @@ function dbToPage(row) {
     timeline: row.timeline || [],
     kanban: row.kanban || { todo: [], working: [], completed: [] },
     goals: row.goals || [],
+    sectionOrder: row.section_order || null,
     createdAt: new Date(row.created_at).getTime(),
     updatedAt: new Date(row.updated_at).getTime(),
   }
@@ -19,13 +20,14 @@ function dbToPage(row) {
 
 function pageToDb(patch) {
   const map = {
-    headline:   'headline',
-    broadNotes: 'broad_notes',
-    quickNotes: 'quick_notes',
-    checklist:  'checklist',
-    timeline:   'timeline',
-    kanban:     'kanban',
-    goals:      'goals',
+    headline:     'headline',
+    broadNotes:   'broad_notes',
+    quickNotes:   'quick_notes',
+    checklist:    'checklist',
+    timeline:     'timeline',
+    kanban:       'kanban',
+    goals:        'goals',
+    sectionOrder: 'section_order',
   }
   const result = {}
   for (const [appKey, dbKey] of Object.entries(map)) {
