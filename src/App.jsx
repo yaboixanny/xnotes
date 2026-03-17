@@ -117,6 +117,7 @@ export default function App() {
             onCreate={handleCreate}
             onOpen={setCurrentId}
             onDelete={handleDelete}
+            onUpdate={(id, patch) => updatePage(id, patch)}
           />
         )}
       </div>
