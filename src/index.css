@@ -30,6 +30,17 @@
   --shadow: 0 1px 3px rgba(0,0,0,0.3);
 }
 
+/* ── App loading ── */
+.app-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  font-size: 14px;
+  color: var(--text-muted);
+  background: var(--bg);
+}
+
 /* ── Reset ── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 

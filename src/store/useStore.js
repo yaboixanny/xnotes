@@ -1,92 +1,85 @@
 import { useState, useEffect } from 'react'
+import { supabase } from './supabase'
 
-const STORAGE_KEY = 'note-app-data'
-const VERSION = 2
-
-function newPage(id) {
+// ── DB ↔ App field mapping ──────────────────────────────
+function dbToPage(row) {
   return {
-    id,
-    headline: '',
-    broadNotes: '',
-    quickNotes: [],
-    checklist: [],
-    timeline: [],
-    kanban: { todo: [], working: [], completed: [] },
-    goals: [],
-    createdAt: Date.now(),
-    updatedAt: Date.now(),
+    id: row.id,
+    headline: row.headline || '',
+    broadNotes: row.broad_notes || '',
+    quickNotes: row.quick_notes || [],
+    checklist: row.checklist || [],
+    timeline: row.timeline || [],
+    kanban: row.kanban || { todo: [], working: [], completed: [] },
+    goals: row.goals || [],
+    createdAt: new Date(row.created_at).getTime(),
+    updatedAt: new Date(row.updated_at).getTime(),
   }
 }
 
-function migrate(raw) {
-  // v1 was a single flat note; convert to pages array
-  if (!raw.version || raw.version < 2) {
-    const hasContent =
-      raw.headline || raw.broadNotes ||
-      raw.notes?.length || raw.checklist?.length ||
-      raw.timeline?.length || raw.goals?.length
-    const pages = hasContent
-      ? [{
-          ...newPage(crypto.randomUUID()),
-          headline: raw.headline || '',
-          broadNotes: raw.broadNotes || '',
-          quickNotes: raw.notes || [],
-          checklist: raw.checklist || [],
-          timeline: raw.timeline || [],
-          kanban: { todo: [], working: [], completed: [], ...raw.kanban },
-          goals: raw.goals || [],
-        }]
-      : []
-    return { version: VERSION, pages }
+function pageToDb(patch) {
+  const map = {
+    headline:   'headline',
+    broadNotes: 'broad_notes',
+    quickNotes: 'quick_notes',
+    checklist:  'checklist',
+    timeline:   'timeline',
+    kanban:     'kanban',
+    goals:      'goals',
   }
-  return raw
+  const result = {}
+  for (const [appKey, dbKey] of Object.entries(map)) {
+    if (patch[appKey] !== undefined) result[dbKey] = patch[appKey]
+  }
+  return result
 }
 
-function load() {
-  try {
-    const raw = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}')
-    return migrate(raw)
-  } catch {
-    return { version: VERSION, pages: [] }
-  }
-}
-
-export function useAppStore() {
-  const [state, setState] = useState(load)
+// ── Hook ────────────────────────────────────────────────
+export function useAppStore(userId) {
+  const [pages, setPages] = useState([])
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
-  }, [state])
+    if (!userId) { setPages([]); setLoading(false); return }
+    fetchPages()
+  }, [userId])
 
-  function createPage() {
-    const page = newPage(crypto.randomUUID())
-    setState(s => ({ ...s, pages: [...s.pages, page] }))
+  async function fetchPages() {
+    setLoading(true)
+    const { data, error } = await supabase
+      .from('notes')
+      .select('*')
+      .order('created_at', { ascending: true })
+    if (!error && data) setPages(data.map(dbToPage))
+    setLoading(false)
+  }
+
+  async function createPage() {
+    const { data, error } = await supabase
+      .from('notes')
+      .insert([{ user_id: userId }])
+      .select()
+      .single()
+    if (error) throw error
+    const page = dbToPage(data)
+    setPages(prev => [...prev, page])
     return page.id
   }
 
-  function updatePage(id, patch) {
-    setState(s => ({
-      ...s,
-      pages: s.pages.map(p =>
-        p.id === id ? { ...p, ...patch, updatedAt: Date.now() } : p
-      ),
-    }))
+  async function updatePage(id, patch) {
+    const dbPatch = pageToDb(patch)
+    dbPatch.updated_at = new Date().toISOString()
+    const { error } = await supabase.from('notes').update(dbPatch).eq('id', id)
+    if (error) throw error
+    setPages(prev =>
+      prev.map(p => p.id === id ? { ...p, ...patch, updatedAt: Date.now() } : p)
+    )
   }
 
-  function updateKanban(id, patch) {
-    setState(s => ({
-      ...s,
-      pages: s.pages.map(p =>
-        p.id === id
-          ? { ...p, kanban: { ...p.kanban, ...patch }, updatedAt: Date.now() }
-          : p
-      ),
-    }))
+  async function deletePage(id) {
+    await supabase.from('notes').delete().eq('id', id)
+    setPages(prev => prev.filter(p => p.id !== id))
   }
 
-  function deletePage(id) {
-    setState(s => ({ ...s, pages: s.pages.filter(p => p.id !== id) }))
-  }
-
-  return { pages: state.pages, createPage, updatePage, updateKanban, deletePage }
+  return { pages, loading, createPage, updatePage, deletePage }
 }

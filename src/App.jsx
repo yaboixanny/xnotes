@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
+import { supabase } from './store/supabase'
+import { signOut } from './store/auth'
 import { useAppStore } from './store/useStore'
-import { getAccount, getSession, signOut } from './store/auth'
 import LandingPage from './components/LandingPage'
 import HomePage from './components/HomePage'
 import NotePage from './components/NotePage'
@@ -16,24 +17,36 @@ function useTheme() {
 }
 
 export default function App() {
-  const { pages, createPage, updatePage, deletePage } = useAppStore()
-  const [session, setSession] = useState(getSession)   // active login — cleared on sign out
-  const [view, setView] = useState(getSession() ? 'app' : 'landing')
+  const [session, setSession] = useState(null)
+  const [authReady, setAuthReady] = useState(false)
+  const [view, setView] = useState('landing')
   const [currentId, setCurrentId] = useState(null)
   const [dark, toggleTheme] = useTheme()
   const noteBackRef = useRef(null)
 
-  const currentPage = pages.find(p => p.id === currentId) ?? null
-  const account = getAccount()
+  const userId = session?.user?.id
+  const userName = session?.user?.user_metadata?.name || session?.user?.email?.split('@')[0] || 'Writer'
 
-  function handleSessionStart(s) {
-    setSession(s)
-    setView('app')
-  }
+  const { pages, loading, createPage, updatePage, deletePage } = useAppStore(userId)
 
-  function handleSignOut() {
-    signOut()           // clears session only — account + notes stay
-    setSession(null)
+  // Restore session on load, listen for auth changes
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session)
+      setView(session ? 'app' : 'landing')
+      setAuthReady(true)
+    })
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session)
+      if (!session) { setView('landing'); setCurrentId(null) }
+    })
+
+    return () => subscription.unsubscribe()
+  }, [])
+
+  async function handleSignOut() {
+    await signOut()
     setCurrentId(null)
     setView('landing')
   }
@@ -43,8 +56,8 @@ export default function App() {
     setView('landing')
   }
 
-  function handleCreate() {
-    const id = createPage()
+  async function handleCreate() {
+    const id = await createPage()
     setCurrentId(id)
   }
 
@@ -53,12 +66,15 @@ export default function App() {
     if (currentId === id) setCurrentId(null)
   }
 
+  const currentPage = pages.find(p => p.id === currentId) ?? null
+
+  if (!authReady) return <div className="app-loading">Loading…</div>
+
   if (view === 'landing') {
     return (
       <LandingPage
-        hasAccount={!!account}
         isLoggedIn={!!session}
-        onSessionStart={handleSessionStart}
+        onSessionStart={() => setView('app')}
         onOpenApp={() => setView('app')}
       />
     )
@@ -76,7 +92,12 @@ export default function App() {
         <button className="theme-toggle" onClick={toggleTheme}>
           {dark ? '☀ Light' : '⏾ Dark'}
         </button>
-        <UserMenu session={session} onGoHome={goToLanding} onSignOut={handleSignOut} />
+        <UserMenu
+          name={userName}
+          email={session?.user?.email}
+          onGoHome={goToLanding}
+          onSignOut={handleSignOut}
+        />
       </div>
 
       <div className="page-wrap">
@@ -90,7 +111,8 @@ export default function App() {
         ) : (
           <HomePage
             pages={pages}
-            user={session}
+            loading={loading}
+            user={{ name: userName }}
             onCreate={handleCreate}
             onOpen={setCurrentId}
             onDelete={handleDelete}

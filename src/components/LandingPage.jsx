@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
-import { createAccount, login } from '../store/auth'
+import { signUp, signIn } from '../store/auth'
 
-export default function LandingPage({ hasAccount, isLoggedIn, onSessionStart, onOpenApp }) {
+export default function LandingPage({ isLoggedIn, onSessionStart, onOpenApp }) {
   const [modalOpen, setModalOpen] = useState(false)
 
   function handleCTA() {
@@ -9,11 +9,11 @@ export default function LandingPage({ hasAccount, isLoggedIn, onSessionStart, on
     setModalOpen(true)
   }
 
-  const ctaLabel = isLoggedIn ? 'Open App →' : hasAccount ? 'Log In →' : 'Start Writing — It\'s Free'
+  const ctaLabel = isLoggedIn ? 'Open App →' : 'Start Writing — It\'s Free'
 
   return (
     <div className="lp">
-      <LPNav onLogin={handleCTA} isLoggedIn={isLoggedIn} hasAccount={hasAccount} />
+      <LPNav onLogin={handleCTA} isLoggedIn={isLoggedIn} />
       <Hero onCTA={handleCTA} ctaLabel={ctaLabel} />
       <ValueProps />
       <CrossOut />
@@ -23,7 +23,6 @@ export default function LandingPage({ hasAccount, isLoggedIn, onSessionStart, on
       <LPFooter />
       {modalOpen && (
         <AuthModal
-          hasAccount={hasAccount}
           onSessionStart={onSessionStart}
           onClose={() => setModalOpen(false)}
         />
@@ -33,7 +32,7 @@ export default function LandingPage({ hasAccount, isLoggedIn, onSessionStart, on
 }
 
 /* ── Nav ── */
-function LPNav({ onLogin, isLoggedIn, hasAccount }) {
+function LPNav({ onLogin, isLoggedIn }) {
   return (
     <nav className="lp-nav">
       <span className="lp-logo">✕ <span>X Note</span></span>
@@ -41,7 +40,7 @@ function LPNav({ onLogin, isLoggedIn, hasAccount }) {
         <a href="#features">Features</a>
         <a href="#compare">Compare</a>
         <button className="lp-nav-login" onClick={onLogin}>
-          {isLoggedIn ? 'Open App →' : hasAccount ? 'Log in →' : 'Get started →'}
+          {isLoggedIn ? 'Open App →' : 'Log in →'}
         </button>
       </div>
     </nav>
@@ -267,10 +266,11 @@ function LPFooter() {
   )
 }
 
-/* ── Auth Modal (Create Account or Login) ── */
-function AuthModal({ hasAccount, onSessionStart, onClose }) {
-  const [mode, setMode] = useState(hasAccount ? 'login' : 'create')
+/* ── Auth Modal ── */
+function AuthModal({ onSessionStart, onClose }) {
+  const [mode, setMode] = useState('login')
   const [name, setName] = useState('')
+  const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
   const [error, setError] = useState('')
@@ -278,6 +278,7 @@ function AuthModal({ hasAccount, onSessionStart, onClose }) {
 
   async function handleSubmit() {
     setError('')
+    if (!email) { setError('Email is required.'); return }
     if (!password) { setError('Password is required.'); return }
 
     setLoading(true)
@@ -285,13 +286,15 @@ function AuthModal({ hasAccount, onSessionStart, onClose }) {
       if (mode === 'create') {
         if (password.length < 6) { setError('Password must be at least 6 characters.'); return }
         if (password !== confirm) { setError('Passwords do not match.'); return }
-        const session = await createAccount(name, password)
-        onSessionStart(session)
+        await signUp(email, password, name)
+        // Supabase may require email confirmation — handle gracefully
+        onSessionStart()
       } else {
-        const session = await login(password)
-        if (!session) { setError('Incorrect password. Try again.'); return }
-        onSessionStart(session)
+        await signIn(email, password)
+        onSessionStart()
       }
+    } catch (err) {
+      setError(err.message || 'Something went wrong. Try again.')
     } finally {
       setLoading(false)
     }
@@ -305,44 +308,18 @@ function AuthModal({ hasAccount, onSessionStart, onClose }) {
         {mode === 'create' ? (
           <>
             <h2 className="lp-modal-title">Create your account</h2>
-            <p className="lp-modal-sub">Your notes are stored locally and protected by your password.</p>
-            <input
-              className="lp-modal-input"
-              placeholder="Your name (optional)"
-              value={name}
-              onChange={e => setName(e.target.value)}
-              autoFocus
-            />
-            <input
-              className="lp-modal-input"
-              type="password"
-              placeholder="Password"
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && handleSubmit()}
-            />
-            <input
-              className="lp-modal-input"
-              type="password"
-              placeholder="Confirm password"
-              value={confirm}
-              onChange={e => setConfirm(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && handleSubmit()}
-            />
+            <p className="lp-modal-sub">Your notes sync securely across all your devices.</p>
+            <input className="lp-modal-input" placeholder="Your name (optional)" value={name} onChange={e => setName(e.target.value)} autoFocus />
+            <input className="lp-modal-input" type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} />
+            <input className="lp-modal-input" type="password" placeholder="Password" value={password} onChange={e => setPassword(e.target.value)} />
+            <input className="lp-modal-input" type="password" placeholder="Confirm password" value={confirm} onChange={e => setConfirm(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleSubmit()} />
           </>
         ) : (
           <>
             <h2 className="lp-modal-title">Welcome back</h2>
-            <p className="lp-modal-sub">Enter your password to access your notes.</p>
-            <input
-              className="lp-modal-input"
-              type="password"
-              placeholder="Password"
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && handleSubmit()}
-              autoFocus
-            />
+            <p className="lp-modal-sub">Sign in to access your notes.</p>
+            <input className="lp-modal-input" type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} autoFocus />
+            <input className="lp-modal-input" type="password" placeholder="Password" value={password} onChange={e => setPassword(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleSubmit()} />
           </>
         )}
 
@@ -353,10 +330,10 @@ function AuthModal({ hasAccount, onSessionStart, onClose }) {
         </button>
 
         <button className="lp-modal-switch" onClick={() => { setMode(m => m === 'login' ? 'create' : 'login'); setError('') }}>
-          {mode === 'login' ? 'No account yet? Create one' : 'Already have an account? Log in'}
+          {mode === 'login' ? 'No account? Create one' : 'Already have an account? Log in'}
         </button>
 
-        <p className="lp-modal-note">Password is hashed locally · No servers · Always private</p>
+        <p className="lp-modal-note">Secured by Supabase · Encrypted in transit · Always private</p>
       </div>
     </div>
   )
