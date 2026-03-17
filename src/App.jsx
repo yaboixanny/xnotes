@@ -6,6 +6,7 @@ import LandingPage from './components/LandingPage'
 import HomePage from './components/HomePage'
 import NotePage from './components/NotePage'
 import UserMenu from './components/UserMenu'
+import ReminderBot from './components/ReminderBot'
 
 function useTheme() {
   const [dark, setDark] = useState(() => localStorage.getItem('theme') === 'dark')
@@ -102,6 +103,7 @@ export default function App() {
         />
       </div>
 
+      {pages.length > 0 && <ReminderBot pages={pages} />}
       <div className="page-wrap">
         {currentPage ? (
           <NotePage
