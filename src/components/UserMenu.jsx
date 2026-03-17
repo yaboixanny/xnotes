@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 
-export default function UserMenu({ user, onGoHome, onSignOut }) {
+export default function UserMenu({ session, onGoHome, onSignOut }) {
+  const user = session
   const [open, setOpen] = useState(false)
   const ref = useRef(null)
 
@@ -44,7 +45,7 @@ export default function UserMenu({ user, onGoHome, onSignOut }) {
           <div className="user-dropdown-divider" />
 
           <button className="user-dropdown-item user-dropdown-signout" onClick={() => { onSignOut(); setOpen(false) }}>
-            <span>→</span> Sign out
+            <span>→</span> Sign out (notes stay saved)
           </button>
         </div>
       )}

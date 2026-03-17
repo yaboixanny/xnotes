@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useAppStore } from './store/useStore'
+import { getAccount, getSession, signOut } from './store/auth'
 import LandingPage from './components/LandingPage'
 import HomePage from './components/HomePage'
 import NotePage from './components/NotePage'
@@ -14,23 +15,32 @@ function useTheme() {
   return [dark, () => setDark(d => !d)]
 }
 
-function loadUser() {
-  try { return JSON.parse(localStorage.getItem('xnote-user')) } catch { return null }
-}
-
 export default function App() {
   const { pages, createPage, updatePage, deletePage } = useAppStore()
-  const [user, setUser] = useState(loadUser)
-  const [view, setView] = useState(loadUser() ? 'app' : 'landing') // 'landing' | 'app'
+  const [session, setSession] = useState(getSession)   // active login — cleared on sign out
+  const [view, setView] = useState(getSession() ? 'app' : 'landing')
   const [currentId, setCurrentId] = useState(null)
   const [dark, toggleTheme] = useTheme()
   const noteBackRef = useRef(null)
 
   const currentPage = pages.find(p => p.id === currentId) ?? null
+  const account = getAccount()
 
-  function handleEnter(u) {
-    setUser(u)
+  function handleSessionStart(s) {
+    setSession(s)
     setView('app')
+  }
+
+  function handleSignOut() {
+    signOut()           // clears session only — account + notes stay
+    setSession(null)
+    setCurrentId(null)
+    setView('landing')
+  }
+
+  function goToLanding() {
+    setCurrentId(null)
+    setView('landing')
   }
 
   function handleCreate() {
@@ -43,20 +53,15 @@ export default function App() {
     if (currentId === id) setCurrentId(null)
   }
 
-  function handleSignOut() {
-    localStorage.removeItem('xnote-user')
-    setUser(null)
-    setCurrentId(null)
-    setView('landing')
-  }
-
-  function goToLanding() {
-    setCurrentId(null)
-    setView('landing')
-  }
-
   if (view === 'landing') {
-    return <LandingPage user={user} onEnter={handleEnter} onOpenApp={() => setView('app')} />
+    return (
+      <LandingPage
+        hasAccount={!!account}
+        isLoggedIn={!!session}
+        onSessionStart={handleSessionStart}
+        onOpenApp={() => setView('app')}
+      />
+    )
   }
 
   return (
@@ -71,7 +76,7 @@ export default function App() {
         <button className="theme-toggle" onClick={toggleTheme}>
           {dark ? '☀ Light' : '⏾ Dark'}
         </button>
-        <UserMenu user={user} onGoHome={goToLanding} onSignOut={handleSignOut} />
+        <UserMenu session={session} onGoHome={goToLanding} onSignOut={handleSignOut} />
       </div>
 
       <div className="page-wrap">
@@ -85,7 +90,7 @@ export default function App() {
         ) : (
           <HomePage
             pages={pages}
-            user={user}
+            user={session}
             onCreate={handleCreate}
             onOpen={setCurrentId}
             onDelete={handleDelete}

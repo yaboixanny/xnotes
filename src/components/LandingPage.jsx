@@ -1,22 +1,19 @@
 import { useState, useRef, useEffect } from 'react'
+import { createAccount, login } from '../store/auth'
 
-export default function LandingPage({ user, onEnter, onOpenApp }) {
-  const [loginOpen, setLoginOpen] = useState(false)
+export default function LandingPage({ hasAccount, isLoggedIn, onSessionStart, onOpenApp }) {
+  const [modalOpen, setModalOpen] = useState(false)
 
-  // If already logged in, CTAs go straight to app instead of showing modal
   function handleCTA() {
-    if (user) {
-      onOpenApp()
-    } else {
-      setLoginOpen(true)
-    }
+    if (isLoggedIn) { onOpenApp(); return }
+    setModalOpen(true)
   }
 
-  const ctaLabel = user ? `Open App →` : 'Start Writing — It\'s Free'
+  const ctaLabel = isLoggedIn ? 'Open App →' : hasAccount ? 'Log In →' : 'Start Writing — It\'s Free'
 
   return (
     <div className="lp">
-      <LPNav onLogin={handleCTA} isLoggedIn={!!user} />
+      <LPNav onLogin={handleCTA} isLoggedIn={isLoggedIn} hasAccount={hasAccount} />
       <Hero onCTA={handleCTA} ctaLabel={ctaLabel} />
       <ValueProps />
       <CrossOut />
@@ -24,13 +21,19 @@ export default function LandingPage({ user, onEnter, onOpenApp }) {
       <Comparison />
       <FinalCTA onCTA={handleCTA} ctaLabel={ctaLabel} />
       <LPFooter />
-      {loginOpen && <LoginModal onEnter={onEnter} onClose={() => setLoginOpen(false)} />}
+      {modalOpen && (
+        <AuthModal
+          hasAccount={hasAccount}
+          onSessionStart={onSessionStart}
+          onClose={() => setModalOpen(false)}
+        />
+      )}
     </div>
   )
 }
 
 /* ── Nav ── */
-function LPNav({ onLogin, isLoggedIn }) {
+function LPNav({ onLogin, isLoggedIn, hasAccount }) {
   return (
     <nav className="lp-nav">
       <span className="lp-logo">✕ <span>X Note</span></span>
@@ -38,7 +41,7 @@ function LPNav({ onLogin, isLoggedIn }) {
         <a href="#features">Features</a>
         <a href="#compare">Compare</a>
         <button className="lp-nav-login" onClick={onLogin}>
-          {isLoggedIn ? 'Open App →' : 'Log in →'}
+          {isLoggedIn ? 'Open App →' : hasAccount ? 'Log in →' : 'Get started →'}
         </button>
       </div>
     </nav>
@@ -264,34 +267,96 @@ function LPFooter() {
   )
 }
 
-/* ── Login Modal ── */
-function LoginModal({ onEnter, onClose }) {
+/* ── Auth Modal (Create Account or Login) ── */
+function AuthModal({ hasAccount, onSessionStart, onClose }) {
+  const [mode, setMode] = useState(hasAccount ? 'login' : 'create')
   const [name, setName] = useState('')
+  const [password, setPassword] = useState('')
+  const [confirm, setConfirm] = useState('')
+  const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
 
-  function handleEnter() {
-    const user = { name: name.trim() || 'Writer', joinedAt: Date.now() }
-    localStorage.setItem('xnote-user', JSON.stringify(user))
-    onEnter(user)
+  async function handleSubmit() {
+    setError('')
+    if (!password) { setError('Password is required.'); return }
+
+    setLoading(true)
+    try {
+      if (mode === 'create') {
+        if (password.length < 6) { setError('Password must be at least 6 characters.'); return }
+        if (password !== confirm) { setError('Passwords do not match.'); return }
+        const session = await createAccount(name, password)
+        onSessionStart(session)
+      } else {
+        const session = await login(password)
+        if (!session) { setError('Incorrect password. Try again.'); return }
+        onSessionStart(session)
+      }
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
     <div className="lp-modal-overlay" onClick={onClose}>
       <div className="lp-modal" onClick={e => e.stopPropagation()}>
         <div className="lp-modal-logo">✕</div>
-        <h2 className="lp-modal-title">Welcome to X Note</h2>
-        <p className="lp-modal-sub">No account needed. Your notes live on your device.</p>
-        <input
-          className="lp-modal-input"
-          placeholder="Your name (optional)"
-          value={name}
-          onChange={e => setName(e.target.value)}
-          onKeyDown={e => e.key === 'Enter' && handleEnter()}
-          autoFocus
-        />
-        <button className="lp-modal-btn" onClick={handleEnter}>
-          Start Writing →
+
+        {mode === 'create' ? (
+          <>
+            <h2 className="lp-modal-title">Create your account</h2>
+            <p className="lp-modal-sub">Your notes are stored locally and protected by your password.</p>
+            <input
+              className="lp-modal-input"
+              placeholder="Your name (optional)"
+              value={name}
+              onChange={e => setName(e.target.value)}
+              autoFocus
+            />
+            <input
+              className="lp-modal-input"
+              type="password"
+              placeholder="Password"
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleSubmit()}
+            />
+            <input
+              className="lp-modal-input"
+              type="password"
+              placeholder="Confirm password"
+              value={confirm}
+              onChange={e => setConfirm(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleSubmit()}
+            />
+          </>
+        ) : (
+          <>
+            <h2 className="lp-modal-title">Welcome back</h2>
+            <p className="lp-modal-sub">Enter your password to access your notes.</p>
+            <input
+              className="lp-modal-input"
+              type="password"
+              placeholder="Password"
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleSubmit()}
+              autoFocus
+            />
+          </>
+        )}
+
+        {error && <p className="lp-modal-error">{error}</p>}
+
+        <button className="lp-modal-btn" onClick={handleSubmit} disabled={loading}>
+          {loading ? 'Just a moment…' : mode === 'create' ? 'Create Account →' : 'Log In →'}
         </button>
-        <p className="lp-modal-note">Local storage only · No tracking · Always free</p>
+
+        <button className="lp-modal-switch" onClick={() => { setMode(m => m === 'login' ? 'create' : 'login'); setError('') }}>
+          {mode === 'login' ? 'No account yet? Create one' : 'Already have an account? Log in'}
+        </button>
+
+        <p className="lp-modal-note">Password is hashed locally · No servers · Always private</p>
       </div>
     </div>
   )
