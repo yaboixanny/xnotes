@@ -13,7 +13,7 @@ function greeting() {
   return 'Good evening'
 }
 
-export default function HomePage({ pages, onCreate, onOpen, onDelete }) {
+export default function HomePage({ pages, user, onCreate, onOpen, onDelete }) {
   const today = new Date().toLocaleDateString(undefined, {
     weekday: 'long', month: 'long', day: 'numeric',
   })
@@ -23,7 +23,7 @@ export default function HomePage({ pages, onCreate, onOpen, onDelete }) {
       {/* Hero */}
       <div className="home-hero">
         <div className="home-hero-text">
-          <p className="home-greeting">{greeting()}</p>
+          <p className="home-greeting">{greeting()}{user?.name ? `, ${user.name}` : ''}</p>
           <h1 className="home-title">My Notes</h1>
           <p className="home-date">{today}</p>
         </div>
