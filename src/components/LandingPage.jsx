@@ -295,6 +295,32 @@ function LPFooter() {
   )
 }
 
+/* ── Password field with show/hide toggle ── */
+function PasswordInput({ placeholder, value, onChange, onKeyDown, autoFocus }) {
+  const [show, setShow] = useState(false)
+  return (
+    <div className="lp-pw-wrap">
+      <input
+        className="lp-modal-input lp-pw-input"
+        type={show ? 'text' : 'password'}
+        placeholder={placeholder}
+        value={value}
+        onChange={onChange}
+        onKeyDown={onKeyDown}
+        autoFocus={autoFocus}
+      />
+      <button
+        type="button"
+        className="lp-pw-toggle"
+        onClick={() => setShow(s => !s)}
+        tabIndex={-1}
+      >
+        {show ? '🙈' : '👁'}
+      </button>
+    </div>
+  )
+}
+
 /* ── Auth Modal ── */
 function AuthModal({ initialMode = 'login', onSessionStart, onClose }) {
   const [mode, setMode] = useState(initialMode)
@@ -316,7 +342,6 @@ function AuthModal({ initialMode = 'login', onSessionStart, onClose }) {
         if (password.length < 6) { setError('Password must be at least 6 characters.'); return }
         if (password !== confirm) { setError('Passwords do not match.'); return }
         await signUp(email, password, name)
-        // Supabase may require email confirmation — handle gracefully
         onSessionStart()
       } else {
         await signIn(email, password)
@@ -340,15 +365,15 @@ function AuthModal({ initialMode = 'login', onSessionStart, onClose }) {
             <p className="lp-modal-sub">Your notes sync securely across all your devices.</p>
             <input className="lp-modal-input" placeholder="Your name (optional)" value={name} onChange={e => setName(e.target.value)} autoFocus />
             <input className="lp-modal-input" type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} />
-            <input className="lp-modal-input" type="password" placeholder="Password" value={password} onChange={e => setPassword(e.target.value)} />
-            <input className="lp-modal-input" type="password" placeholder="Confirm password" value={confirm} onChange={e => setConfirm(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleSubmit()} />
+            <PasswordInput placeholder="Password" value={password} onChange={e => setPassword(e.target.value)} />
+            <PasswordInput placeholder="Confirm password" value={confirm} onChange={e => setConfirm(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleSubmit()} />
           </>
         ) : (
           <>
             <h2 className="lp-modal-title">Welcome back</h2>
             <p className="lp-modal-sub">Sign in to access your notes.</p>
             <input className="lp-modal-input" type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} autoFocus />
-            <input className="lp-modal-input" type="password" placeholder="Password" value={password} onChange={e => setPassword(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleSubmit()} />
+            <PasswordInput placeholder="Password" value={password} onChange={e => setPassword(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleSubmit()} />
           </>
         )}
 

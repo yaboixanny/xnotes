@@ -1684,6 +1684,32 @@ body {
 }
 .lp-modal-btn:hover { opacity: 0.9; }
 
+.lp-pw-wrap {
+  position: relative;
+  width: 100%;
+}
+
+.lp-pw-input {
+  width: 100%;
+  padding-right: 44px !important;
+}
+
+.lp-pw-toggle {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 15px;
+  line-height: 1;
+  padding: 4px;
+  opacity: 0.6;
+  transition: opacity 0.15s;
+}
+.lp-pw-toggle:hover { opacity: 1; }
+
 .lp-modal-btn:disabled { opacity: 0.6; cursor: not-allowed; }
 
 .lp-modal-error {
