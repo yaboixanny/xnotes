@@ -57,8 +57,13 @@ export default function App() {
   }
 
   async function handleCreate() {
-    const id = await createPage()
-    setCurrentId(id)
+    try {
+      const id = await createPage()
+      setCurrentId(id)
+    } catch (err) {
+      console.error('Failed to create note:', err)
+      alert('Could not create note: ' + (err.message || err))
+    }
   }
 
   function handleDelete(id) {
