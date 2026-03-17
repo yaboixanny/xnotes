@@ -955,12 +955,12 @@ body {
    Always dark — independent of app theme
 ════════════════════════════════════════ */
 .lp {
-  --lp-bg: #07090e;
-  --lp-surface: #0d1018;
-  --lp-surface2: #131720;
-  --lp-border: #1c2030;
-  --lp-text: #e4e8f2;
-  --lp-muted: #4a5070;
+  --lp-bg: #111827;
+  --lp-surface: #1a2436;
+  --lp-surface2: #1f2c42;
+  --lp-border: #2e3f5c;
+  --lp-text: #edf0f7;
+  --lp-muted: #8095b4;
   --lp-accent: #38d9f5;
   --lp-accent-dim: rgba(56,217,245,0.12);
   --lp-font: 'Inter', system-ui, -apple-system, sans-serif;
@@ -981,7 +981,7 @@ body {
   position: sticky;
   top: 0;
   z-index: 50;
-  background: rgba(7,9,14,0.85);
+  background: rgba(17,24,39,0.88);
   backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--lp-border);
 }
@@ -1048,7 +1048,7 @@ body {
   align-items: center;
   gap: 10px;
   background: var(--lp-accent);
-  color: #07090e;
+  color: #111827;
   border: none;
   border-radius: 12px;
   padding: 14px 28px;
@@ -1523,7 +1523,7 @@ body {
 .lp-modal-btn {
   width: 100%;
   background: var(--lp-accent);
-  color: #07090e;
+  color: #111827;
   border: none;
   border-radius: 10px;
   padding: 13px;
