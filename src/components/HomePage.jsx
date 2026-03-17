@@ -1,10 +1,15 @@
 import { useState, useEffect, useRef } from 'react'
 import {
   DndContext, PointerSensor, useSensor, useSensors,
-  DragOverlay, useDroppable, useDraggable, rectIntersection,
+  DragOverlay, useDroppable, rectIntersection,
 } from '@dnd-kit/core'
+import {
+  SortableContext, useSortable, rectSortingStrategy, arrayMove,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 
 const SECTIONS_KEY = 'note-sections'
+const ORDERS_KEY   = 'note-card-orders'
 const CARD_ACCENTS = ['#4a6cf7', '#e05c97', '#f0a030', '#3ecf8e', '#a855f7', '#0ea5e9']
 
 function getAccent(id) {
@@ -21,9 +26,9 @@ function greeting() {
 }
 
 function calcProgress(page) {
-  const checkDone = page.checklist.filter(i => i.checked).length
+  const checkDone  = page.checklist.filter(i => i.checked).length
   const checkTotal = page.checklist.length
-  const kanbanDone = page.kanban.completed.length
+  const kanbanDone  = page.kanban.completed.length
   const kanbanTotal = page.kanban.todo.length + page.kanban.working.length + page.kanban.completed.length
   const total = checkTotal + kanbanTotal
   if (total === 0) return null
@@ -39,7 +44,7 @@ function progressColor(pct) {
 function overallProgress(pages) {
   let done = 0, total = 0
   for (const p of pages) {
-    done += p.checklist.filter(i => i.checked).length + p.kanban.completed.length
+    done  += p.checklist.filter(i => i.checked).length + p.kanban.completed.length
     total += p.checklist.length + p.kanban.todo.length + p.kanban.working.length + p.kanban.completed.length
   }
   if (total === 0) return null
@@ -53,14 +58,26 @@ function loadSections() {
   } catch {}
   return ['General']
 }
+function saveSections(s) { localStorage.setItem(SECTIONS_KEY, JSON.stringify(s)) }
 
-function saveSections(s) {
-  localStorage.setItem(SECTIONS_KEY, JSON.stringify(s))
+function loadOrders() {
+  try { return JSON.parse(localStorage.getItem(ORDERS_KEY)) || {} } catch { return {} }
+}
+function saveOrders(o) { localStorage.setItem(ORDERS_KEY, JSON.stringify(o)) }
+
+// Apply stored order to a list of pages within a section
+function applySectionOrder(order, cards) {
+  if (!order?.length) return cards
+  const byId = Object.fromEntries(cards.map(c => [c.id, c]))
+  const ordered = order.map(id => byId[id]).filter(Boolean)
+  const rest    = cards.filter(c => !order.includes(c.id))
+  return [...ordered, ...rest]
 }
 
 export default function HomePage({ pages, user, onCreate, onOpen, onDelete, onUpdate }) {
-  const [sections, setSections] = useState(loadSections)
-  const [activeCard, setActiveCard] = useState(null)
+  const [sections,    setSections]    = useState(loadSections)
+  const [cardOrders,  setCardOrders]  = useState(loadOrders)
+  const [activeCard,  setActiveCard]  = useState(null)
   const [addingSection, setAddingSection] = useState(false)
   const [newSectionName, setNewSectionName] = useState('')
   const addInputRef = useRef(null)
@@ -73,7 +90,7 @@ export default function HomePage({ pages, user, onCreate, onOpen, onDelete, onUp
 
   // Ensure all note categories exist as sections
   useEffect(() => {
-    const cats = pages.map(p => p.category || 'General')
+    const cats    = pages.map(p => p.category || 'General')
     const missing = cats.filter(c => !sections.includes(c))
     if (missing.length) {
       const updated = [...sections, ...new Set(missing)]
@@ -82,10 +99,9 @@ export default function HomePage({ pages, user, onCreate, onOpen, onDelete, onUp
     }
   }, [pages])
 
-  useEffect(() => {
-    if (addingSection) addInputRef.current?.focus()
-  }, [addingSection])
+  useEffect(() => { if (addingSection) addInputRef.current?.focus() }, [addingSection])
 
+  // ── Section management ──────────────────────────────────
   function addSection() {
     const name = newSectionName.trim()
     if (name && !sections.includes(name)) {
@@ -103,6 +119,13 @@ export default function HomePage({ pages, user, onCreate, onOpen, onDelete, onUp
     const updated = sections.map(s => s === oldName ? trimmed : s)
     setSections(updated)
     saveSections(updated)
+    // Transfer order key
+    setCardOrders(prev => {
+      const next = { ...prev, [trimmed]: prev[oldName] }
+      delete next[oldName]
+      saveOrders(next)
+      return next
+    })
     pages.filter(p => (p.category || 'General') === oldName)
       .forEach(p => onUpdate(p.id, { category: trimmed }))
   }
@@ -116,31 +139,81 @@ export default function HomePage({ pages, user, onCreate, onOpen, onDelete, onUp
       .forEach(p => onUpdate(p.id, { category: 'General' }))
   }
 
+  // ── Build ordered groups ────────────────────────────────
+  const rawGrouped = {}
+  for (const s of sections) rawGrouped[s] = []
+  for (const page of [...pages].reverse()) {
+    const cat = page.category || 'General'
+    if (rawGrouped[cat] !== undefined) rawGrouped[cat].push(page)
+    else rawGrouped['General'].push(page)
+  }
+  const grouped = {}
+  for (const s of sections) {
+    grouped[s] = applySectionOrder(cardOrders[s], rawGrouped[s])
+  }
+
+  // ── DnD ────────────────────────────────────────────────
   function handleDragStart({ active }) {
     setActiveCard(pages.find(p => p.id === active.id) ?? null)
   }
 
   function handleDragEnd({ active, over }) {
     setActiveCard(null)
-    if (!over) return
+    if (!over || active.id === over.id) return
+
     const card = pages.find(p => p.id === active.id)
     if (!card) return
-    const targetSection = over.id
-    if (sections.includes(targetSection) && (card.category || 'General') !== targetSection) {
-      onUpdate(active.id, { category: targetSection })
+    const fromSection = card.category || 'General'
+
+    // over a section droppable (empty area) → cross-section move
+    if (sections.includes(over.id)) {
+      if (fromSection !== over.id) {
+        onUpdate(active.id, { category: over.id })
+        setCardOrders(prev => {
+          const fromOrder = (prev[fromSection] || grouped[fromSection].map(p => p.id)).filter(id => id !== active.id)
+          const toOrder   = [...(prev[over.id] || grouped[over.id].map(p => p.id)), active.id]
+          const next = { ...prev, [fromSection]: fromOrder, [over.id]: toOrder }
+          saveOrders(next)
+          return next
+        })
+      }
+      return
+    }
+
+    // over a card
+    const overCard = pages.find(p => p.id === over.id)
+    if (!overCard) return
+    const toSection = overCard.category || 'General'
+
+    if (fromSection === toSection) {
+      // Reorder within section
+      setCardOrders(prev => {
+        const ids     = grouped[fromSection].map(p => p.id)
+        const oldIdx  = ids.indexOf(active.id)
+        const newIdx  = ids.indexOf(over.id)
+        if (oldIdx === -1 || newIdx === -1) return prev
+        const next = { ...prev, [fromSection]: arrayMove(ids, oldIdx, newIdx) }
+        saveOrders(next)
+        return next
+      })
+    } else {
+      // Cross-section drop onto a card
+      onUpdate(active.id, { category: toSection })
+      setCardOrders(prev => {
+        const fromOrder = (prev[fromSection] || grouped[fromSection].map(p => p.id)).filter(id => id !== active.id)
+        const toIds     = prev[toSection] || grouped[toSection].map(p => p.id)
+        const insertAt  = toIds.indexOf(over.id)
+        const toOrder   = insertAt === -1
+          ? [...toIds, active.id]
+          : [...toIds.slice(0, insertAt), active.id, ...toIds.slice(insertAt)]
+        const next = { ...prev, [fromSection]: fromOrder, [toSection]: toOrder }
+        saveOrders(next)
+        return next
+      })
     }
   }
 
   const overall = overallProgress(pages)
-
-  // Group notes by section
-  const grouped = {}
-  for (const s of sections) grouped[s] = []
-  for (const page of [...pages].reverse()) {
-    const cat = page.category || 'General'
-    if (grouped[cat] !== undefined) grouped[cat].push(page)
-    else grouped['General'].push(page)
-  }
 
   return (
     <div className="home">
@@ -186,6 +259,9 @@ export default function HomePage({ pages, user, onCreate, onOpen, onDelete, onUp
           )}
         </div>
       )}
+
+      {/* Todo summary */}
+      {pages.length > 0 && <TodoSummary pages={pages} onOpen={onOpen} />}
 
       {pages.length === 0 ? (
         <div className="home-empty">
@@ -254,9 +330,10 @@ export default function HomePage({ pages, user, onCreate, onOpen, onDelete, onUp
   )
 }
 
+// ── Droppable section with sortable cards ───────────────
 function DroppableSection({ name, cards, onOpen, onDelete, onRename, onDeleteSection, canDelete }) {
   const { setNodeRef, isOver } = useDroppable({ id: name })
-  const [editing, setEditing] = useState(false)
+  const [editing, setEditing]  = useState(false)
   const [editName, setEditName] = useState(name)
   const inputRef = useRef(null)
 
@@ -283,11 +360,7 @@ function DroppableSection({ name, cards, onOpen, onDelete, onRename, onDeleteSec
             }}
           />
         ) : (
-          <span
-            className="home-section-label"
-            onClick={() => { setEditName(name); setEditing(true) }}
-            title="Click to rename"
-          >
+          <span className="home-section-label" onClick={() => { setEditName(name); setEditing(true) }} title="Click to rename">
             {name}
           </span>
         )}
@@ -296,30 +369,39 @@ function DroppableSection({ name, cards, onOpen, onDelete, onRename, onDeleteSec
           <button className="btn-section-delete" onClick={() => onDeleteSection(name)} title="Delete section">×</button>
         )}
       </div>
-      <div className="home-grid">
-        {cards.length === 0 && (
-          <div className="home-section-empty">Drop notes here</div>
-        )}
-        {cards.map((page, i) => (
-          <DraggableCard
-            key={page.id}
-            page={page}
-            index={i}
-            accent={getAccent(page.id)}
-            onOpen={() => onOpen(page.id)}
-            onDelete={() => onDelete(page.id)}
-          />
-        ))}
-      </div>
+
+      <SortableContext items={cards.map(c => c.id)} strategy={rectSortingStrategy}>
+        <div className="home-grid">
+          {cards.length === 0 && <div className="home-section-empty">Drop notes here</div>}
+          {cards.map((page, i) => (
+            <SortableCard
+              key={page.id}
+              page={page}
+              index={i}
+              accent={getAccent(page.id)}
+              onOpen={() => onOpen(page.id)}
+              onDelete={() => onDelete(page.id)}
+            />
+          ))}
+        </div>
+      </SortableContext>
     </div>
   )
 }
 
-function DraggableCard({ page, accent, index, onOpen, onDelete }) {
-  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: page.id })
+// ── Sortable card wrapper ───────────────────────────────
+function SortableCard({ page, accent, index, onOpen, onDelete }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: page.id })
 
   return (
-    <div ref={setNodeRef} style={{ opacity: isDragging ? 0.3 : 1 }}>
+    <div
+      ref={setNodeRef}
+      style={{
+        transform: CSS.Transform.toString(transform),
+        transition,
+        opacity: isDragging ? 0.3 : 1,
+      }}
+    >
       <NoteCard
         page={page}
         accent={accent}
@@ -332,20 +414,66 @@ function DraggableCard({ page, accent, index, onOpen, onDelete }) {
   )
 }
 
+// ── Todo Summary ───────────────────────────────────────
+function TodoSummary({ pages, onOpen }) {
+  const [expanded, setExpanded] = useState(false)
+
+  const todos = []
+  for (const page of pages) {
+    for (const item of page.checklist.filter(i => !i.checked)) {
+      todos.push({ text: item.text, note: page.headline || 'Untitled', noteId: page.id, type: 'task' })
+    }
+    for (const card of page.kanban.todo) {
+      if (!page.checklist.find(i => i.id === card.id)) {
+        todos.push({ text: card.text, note: page.headline || 'Untitled', noteId: page.id, type: 'kanban' })
+      }
+    }
+  }
+
+  if (todos.length === 0) return null
+
+  const LIMIT = 5
+  const visible = expanded ? todos : todos.slice(0, LIMIT)
+  const hidden  = todos.length - LIMIT
+
+  return (
+    <div className="todo-summary">
+      <div className="todo-summary-header">
+        <span className="todo-summary-title">To Do</span>
+        <span className="todo-summary-count">{todos.length} item{todos.length !== 1 ? 's' : ''}</span>
+      </div>
+      <div className="todo-summary-list">
+        {visible.map((item, i) => (
+          <div key={i} className="todo-summary-item" onClick={() => onOpen(item.noteId)}>
+            <span className="todo-summary-dot" />
+            <span className="todo-summary-text">{item.text}</span>
+            <span className="todo-summary-note">{item.note}</span>
+          </div>
+        ))}
+      </div>
+      {todos.length > LIMIT && (
+        <button className="todo-summary-toggle" onClick={() => setExpanded(e => !e)}>
+          {expanded ? '↑ Show less' : `↓ Show ${hidden} more`}
+        </button>
+      )}
+    </div>
+  )
+}
+
+// ── Note card ───────────────────────────────────────────
 function NoteCard({ page, accent, index, onOpen, onDelete, dragHandleProps, overlay }) {
-  const tasksDone = page.checklist.filter(i => i.checked).length
+  const tasksDone  = page.checklist.filter(i => i.checked).length
   const totalTasks = page.checklist.length
   const totalKanban = page.kanban.todo.length + page.kanban.working.length + page.kanban.completed.length
-
   const updated = new Date(page.updatedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
 
   const chips = [
-    totalTasks > 0 && `${tasksDone}/${totalTasks} tasks`,
+    totalTasks  > 0 && `${tasksDone}/${totalTasks} tasks`,
     page.quickNotes.length > 0 && `${page.quickNotes.length} notes`,
     totalKanban > 0 && `${totalKanban} cards`,
   ].filter(Boolean)
 
-  const pct = calcProgress(page)
+  const pct   = calcProgress(page)
   const color = pct !== null ? progressColor(pct) : null
 
   return (
@@ -389,7 +517,7 @@ function NoteCard({ page, accent, index, onOpen, onDelete, dragHandleProps, over
           className="note-card-drag-handle"
           {...dragHandleProps}
           onClick={e => e.stopPropagation()}
-          title="Drag to move section"
+          title="Drag to reorder"
         >⠿</span>
       )}
     </div>
