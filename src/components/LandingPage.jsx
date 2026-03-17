@@ -1,17 +1,28 @@
 import { useState, useRef, useEffect } from 'react'
 
-export default function LandingPage({ onEnter }) {
+export default function LandingPage({ user, onEnter, onOpenApp }) {
   const [loginOpen, setLoginOpen] = useState(false)
+
+  // If already logged in, CTAs go straight to app instead of showing modal
+  function handleCTA() {
+    if (user) {
+      onOpenApp()
+    } else {
+      setLoginOpen(true)
+    }
+  }
+
+  const ctaLabel = user ? `Open App →` : 'Start Writing — It\'s Free'
 
   return (
     <div className="lp">
-      <LPNav onLogin={() => setLoginOpen(true)} />
-      <Hero onCTA={() => setLoginOpen(true)} />
+      <LPNav onLogin={handleCTA} isLoggedIn={!!user} />
+      <Hero onCTA={handleCTA} ctaLabel={ctaLabel} />
       <ValueProps />
       <CrossOut />
       <LiveDemo />
       <Comparison />
-      <FinalCTA onCTA={() => setLoginOpen(true)} />
+      <FinalCTA onCTA={handleCTA} ctaLabel={ctaLabel} />
       <LPFooter />
       {loginOpen && <LoginModal onEnter={onEnter} onClose={() => setLoginOpen(false)} />}
     </div>
@@ -19,21 +30,23 @@ export default function LandingPage({ onEnter }) {
 }
 
 /* ── Nav ── */
-function LPNav({ onLogin }) {
+function LPNav({ onLogin, isLoggedIn }) {
   return (
     <nav className="lp-nav">
       <span className="lp-logo">✕ <span>X Note</span></span>
       <div className="lp-nav-links">
         <a href="#features">Features</a>
         <a href="#compare">Compare</a>
-        <button className="lp-nav-login" onClick={onLogin}>Log in →</button>
+        <button className="lp-nav-login" onClick={onLogin}>
+          {isLoggedIn ? 'Open App →' : 'Log in →'}
+        </button>
       </div>
     </nav>
   )
 }
 
 /* ── Hero ── */
-function Hero({ onCTA }) {
+function Hero({ onCTA, ctaLabel }) {
   return (
     <section className="lp-hero">
       <div className="lp-hero-content">
@@ -47,8 +60,7 @@ function Hero({ onCTA }) {
           The minimalist workspace for people who actually want to get things done.
         </p>
         <button className="lp-cta-btn" onClick={onCTA}>
-          Start Writing — It's Free
-          <span className="lp-cta-arrow">→</span>
+          {ctaLabel}
         </button>
         <p className="lp-hero-footnote">No account required. Works offline.</p>
       </div>
@@ -228,13 +240,12 @@ function Comparison() {
 }
 
 /* ── Final CTA ── */
-function FinalCTA({ onCTA }) {
+function FinalCTA({ onCTA, ctaLabel }) {
   return (
     <section className="lp-final">
       <h2 className="lp-final-title">Ready to simplify<br />your brain?</h2>
       <button className="lp-cta-btn" onClick={onCTA}>
-        Open X Note
-        <span className="lp-cta-arrow">→</span>
+        {ctaLabel}
       </button>
       <p className="lp-final-note">
         Available on Mac, Windows &amp; iOS · Markdown-ready · Forever simple.
