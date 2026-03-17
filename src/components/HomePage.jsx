@@ -110,7 +110,7 @@ export default function HomePage({ pages, user, onCreate, onOpen, onDelete }) {
       {/* Notes grouped by category */}
       {pages.length === 0 ? (
         <div className="home-empty">
-          <div className="home-empty-icon">✦</div>
+          <div className="home-empty-icon">Empty</div>
           <p className="home-empty-title">Nothing here yet</p>
           <p className="home-empty-sub">Create your first note to get started.</p>
           <button className="btn-new-note" onClick={onCreate}>
@@ -123,10 +123,11 @@ export default function HomePage({ pages, user, onCreate, onOpen, onDelete }) {
           <div key={cat} className="home-category">
             <p className="home-section-label">{cat}</p>
             <div className="home-grid">
-              {groups[cat].map(page => (
+              {groups[cat].map((page, i) => (
                 <NoteCard
                   key={page.id}
                   page={page}
+                  index={i}
                   accent={getAccent(page.id)}
                   onOpen={() => onOpen(page.id)}
                   onDelete={() => onDelete(page.id)}
@@ -140,7 +141,7 @@ export default function HomePage({ pages, user, onCreate, onOpen, onDelete }) {
   )
 }
 
-function NoteCard({ page, accent, onOpen, onDelete }) {
+function NoteCard({ page, accent, index, onOpen, onDelete }) {
   const tasksDone = page.checklist.filter(i => i.checked).length
   const totalTasks = page.checklist.length
   const totalKanban =
@@ -160,7 +161,7 @@ function NoteCard({ page, accent, onOpen, onDelete }) {
   const color = pct !== null ? progressColor(pct) : null
 
   return (
-    <div className="note-card" onClick={onOpen} style={{ '--card-accent': accent }}>
+    <div className="note-card" onClick={onOpen} style={{ '--card-accent': accent, animationDelay: `${0.05 + index * 0.07}s` }}>
       <div className="note-card-accent-bar" />
       <div className="note-card-body">
         <div className="note-card-top">
