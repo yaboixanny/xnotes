@@ -758,7 +758,10 @@ body {
 .section-drag-handle:hover { opacity: 1 !important; }
 .section-drag-handle:active { cursor: grabbing; }
 
-.section-body { padding: 16px 18px; }
+.section-body { padding: 16px 18px; overflow: hidden; }
+
+/* Kanban gets full width — remove section-body padding */
+.section-body:has(.kanban) { padding: 14px; }
 
 /* ── Shared inputs ── */
 .text-input {
@@ -1089,6 +1092,7 @@ body {
   flex-direction: column;
   gap: 0;
   min-height: 160px;
+  min-width: 0;
   transition: border-color 0.15s;
 }
 
