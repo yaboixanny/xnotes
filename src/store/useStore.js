@@ -13,6 +13,7 @@ function dbToPage(row) {
     kanban: row.kanban || { todo: [], working: [], completed: [] },
     goals: row.goals || [],
     sectionOrder: row.section_order || null,
+    category: row.category || 'General',
     createdAt: new Date(row.created_at).getTime(),
     updatedAt: new Date(row.updated_at).getTime(),
   }
@@ -28,6 +29,7 @@ function pageToDb(patch) {
     kanban:       'kanban',
     goals:        'goals',
     sectionOrder: 'section_order',
+    category:     'category',
   }
   const result = {}
   for (const [appKey, dbKey] of Object.entries(map)) {

@@ -1,3 +1,5 @@
+import { useState } from 'react'
+
 const CARD_ACCENTS = ['#4a6cf7', '#e05c97', '#f0a030', '#3ecf8e', '#a855f7', '#0ea5e9']
 
 function getAccent(id) {
@@ -13,10 +15,49 @@ function greeting() {
   return 'Good evening'
 }
 
+function calcProgress(page) {
+  const checkDone = page.checklist.filter(i => i.checked).length
+  const checkTotal = page.checklist.length
+  const kanbanDone = page.kanban.completed.length
+  const kanbanTotal = page.kanban.todo.length + page.kanban.working.length + page.kanban.completed.length
+  const total = checkTotal + kanbanTotal
+  if (total === 0) return null
+  return Math.round(((checkDone + kanbanDone) / total) * 100)
+}
+
+function progressColor(pct) {
+  if (pct < 33) return '#e05252'
+  if (pct < 66) return '#f0a030'
+  return '#3ecf8e'
+}
+
+function overallProgress(pages) {
+  let done = 0, total = 0
+  for (const p of pages) {
+    done += p.checklist.filter(i => i.checked).length + p.kanban.completed.length
+    total += p.checklist.length + p.kanban.todo.length + p.kanban.working.length + p.kanban.completed.length
+  }
+  if (total === 0) return null
+  return Math.round((done / total) * 100)
+}
+
 export default function HomePage({ pages, user, onCreate, onOpen, onDelete }) {
   const today = new Date().toLocaleDateString(undefined, {
     weekday: 'long', month: 'long', day: 'numeric',
   })
+
+  const overall = overallProgress(pages)
+
+  // Group by category
+  const groups = {}
+  for (const page of [...pages].reverse()) {
+    const cat = page.category || 'General'
+    if (!groups[cat]) groups[cat] = []
+    groups[cat].push(page)
+  }
+  const categoryOrder = Object.keys(groups).sort((a, b) =>
+    a === 'General' ? -1 : b === 'General' ? 1 : a.localeCompare(b)
+  )
 
   return (
     <div className="home">
@@ -33,7 +74,7 @@ export default function HomePage({ pages, user, onCreate, onOpen, onDelete }) {
         </button>
       </div>
 
-      {/* Stats row */}
+      {/* Stats + overall progress */}
       {pages.length > 0 && (
         <div className="home-stats">
           <div className="home-stat">
@@ -48,15 +89,25 @@ export default function HomePage({ pages, user, onCreate, onOpen, onDelete }) {
             </span>
             <span className="home-stat-label">Tasks done</span>
           </div>
-          <div className="home-stat-divider" />
-          <div className="home-stat">
-            <span className="home-stat-value">{pages.reduce((n, p) => n + p.goals.length, 0)}</span>
-            <span className="home-stat-label">Goals</span>
-          </div>
+          {overall !== null && (
+            <>
+              <div className="home-stat-divider" />
+              <div className="home-stat home-stat-progress">
+                <span className="home-stat-label">Overall progress</span>
+                <div className="overall-progress-track">
+                  <div
+                    className="overall-progress-fill"
+                    style={{ width: `${overall}%`, background: progressColor(overall) }}
+                  />
+                </div>
+                <span className="home-stat-pct" style={{ color: progressColor(overall) }}>{overall}%</span>
+              </div>
+            </>
+          )}
         </div>
       )}
 
-      {/* Grid */}
+      {/* Notes grouped by category */}
       {pages.length === 0 ? (
         <div className="home-empty">
           <div className="home-empty-icon">✦</div>
@@ -68,20 +119,22 @@ export default function HomePage({ pages, user, onCreate, onOpen, onDelete }) {
           </button>
         </div>
       ) : (
-        <>
-          <p className="home-section-label">Recent</p>
-          <div className="home-grid">
-            {[...pages].reverse().map(page => (
-              <NoteCard
-                key={page.id}
-                page={page}
-                accent={getAccent(page.id)}
-                onOpen={() => onOpen(page.id)}
-                onDelete={() => onDelete(page.id)}
-              />
-            ))}
+        categoryOrder.map(cat => (
+          <div key={cat} className="home-category">
+            <p className="home-section-label">{cat}</p>
+            <div className="home-grid">
+              {groups[cat].map(page => (
+                <NoteCard
+                  key={page.id}
+                  page={page}
+                  accent={getAccent(page.id)}
+                  onOpen={() => onOpen(page.id)}
+                  onDelete={() => onDelete(page.id)}
+                />
+              ))}
+            </div>
           </div>
-        </>
+        ))
       )}
     </div>
   )
@@ -101,8 +154,10 @@ function NoteCard({ page, accent, onOpen, onDelete }) {
     totalTasks > 0 && `${tasksDone}/${totalTasks} tasks`,
     page.quickNotes.length > 0 && `${page.quickNotes.length} notes`,
     totalKanban > 0 && `${totalKanban} cards`,
-    page.goals.length > 0 && `${page.goals.length} goals`,
   ].filter(Boolean)
+
+  const pct = calcProgress(page)
+  const color = pct !== null ? progressColor(pct) : null
 
   return (
     <div className="note-card" onClick={onOpen} style={{ '--card-accent': accent }}>
@@ -122,6 +177,18 @@ function NoteCard({ page, accent, onOpen, onDelete }) {
           </p>
         ) : (
           <p className="note-card-preview note-card-empty-preview">No notes yet…</p>
+        )}
+
+        {pct !== null && (
+          <div className="card-progress">
+            <div className="card-progress-track">
+              <div
+                className="card-progress-fill"
+                style={{ width: `${pct}%`, background: color }}
+              />
+            </div>
+            <span className="card-progress-pct" style={{ color }}>{pct}%</span>
+          </div>
         )}
 
         <div className="note-card-footer">

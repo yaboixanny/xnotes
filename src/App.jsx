@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { supabase } from './store/supabase'
 import { signOut } from './store/auth'
 import { useAppStore } from './store/useStore'
@@ -22,8 +22,6 @@ export default function App() {
   const [view, setView] = useState('landing')
   const [currentId, setCurrentId] = useState(null)
   const [dark, toggleTheme] = useTheme()
-  const noteBackRef = useRef(null)
-
   const userId = session?.user?.id
   const userName = session?.user?.user_metadata?.name || session?.user?.email?.split('@')[0] || 'Writer'
 
@@ -88,7 +86,7 @@ export default function App() {
     <div className="app">
       <div className="topbar">
         {currentPage ? (
-          <button className="topbar-back" onClick={() => noteBackRef.current?.()}>← Notes</button>
+          <button className="topbar-back" onClick={() => setCurrentId(null)}>← Notes</button>
         ) : (
           <button className="topbar-brand-btn" onClick={goToLanding}>✕ X Note</button>
         )}
@@ -110,7 +108,6 @@ export default function App() {
             page={currentPage}
             onSave={draft => updatePage(currentPage.id, draft)}
             onBack={() => setCurrentId(null)}
-            registerBack={fn => { noteBackRef.current = fn }}
           />
         ) : (
           <HomePage

@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import {
   DndContext, closestCenter, PointerSensor, useSensor, useSensors,
 } from '@dnd-kit/core'
@@ -12,9 +12,10 @@ import Notes from './Notes'
 import Checklist from './Checklist'
 import Timeline from './Timeline'
 import Kanban from './Kanban'
-import Goals from './Goals'
 
-const DEFAULT_ORDER = ['notes', 'checklist', 'broadNotes', 'timeline', 'goals', 'kanban']
+const DEFAULT_ORDER = ['notes', 'checklist', 'broadNotes', 'timeline', 'kanban']
+
+const CATEGORIES = ['General', 'Projects', 'Clients', 'Travel', 'Personal', 'Work']
 
 function getSections(draft, update, updateKanban) {
   return {
@@ -40,10 +41,6 @@ function getSections(draft, update, updateKanban) {
     timeline: {
       title: 'Timeline',
       content: <Timeline events={draft.timeline} onChange={timeline => update({ timeline })} />,
-    },
-    goals: {
-      title: 'Goals & Progress',
-      content: <Goals goals={draft.goals} onChange={goals => update({ goals })} />,
     },
     kanban: {
       title: 'Board',
@@ -86,49 +83,47 @@ function saveDraft(draft) { localStorage.setItem(draftKey(draft.id), JSON.string
 function clearDraft(id) { localStorage.removeItem(draftKey(id)) }
 
 // ── NotePage ──────────────────────────────────────────────
-export default function NotePage({ page, onSave, onBack, registerBack }) {
+export default function NotePage({ page, onSave, onBack }) {
   const [draft, setDraft] = useState(() => loadDraft(page))
-  const savedRef = useRef(page)
-
-  const isDirty = JSON.stringify(draft) !== JSON.stringify(savedRef.current)
+  const [saveStatus, setSaveStatus] = useState('saved') // 'saved' | 'saving' | 'pending'
+  const saveTimer = useRef(null)
+  const latestDraft = useRef(draft)
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
 
   useEffect(() => {
     const d = loadDraft(page)
     setDraft(d)
-    savedRef.current = page
+    latestDraft.current = d
+    setSaveStatus('saved')
   }, [page.id])
 
-  useEffect(() => {
-    if (isDirty) saveDraft(draft)
-  }, [draft])
+  const triggerSave = useCallback(() => {
+    setSaveStatus('saving')
+    onSave(latestDraft.current)
+    clearDraft(latestDraft.current.id)
+    setTimeout(() => setSaveStatus('saved'), 800)
+  }, [onSave])
 
-  useEffect(() => { registerBack?.(handleBack) })
-
-  function update(patch) { setDraft(d => ({ ...d, ...patch })) }
-  function updateKanban(patch) { setDraft(d => ({ ...d, kanban: { ...d.kanban, ...patch } })) }
-
-  function save() {
-    onSave(draft)
-    savedRef.current = draft
-    clearDraft(draft.id)
+  function update(patch) {
+    setDraft(d => {
+      const next = { ...d, ...patch }
+      latestDraft.current = next
+      saveDraft(next)
+      return next
+    })
+    setSaveStatus('pending')
+    if (saveTimer.current) clearTimeout(saveTimer.current)
+    saveTimer.current = setTimeout(triggerSave, 1500)
   }
 
-  function discard() {
-    clearDraft(page.id)
-    setDraft(savedRef.current)
+  function updateKanban(patch) {
+    update({ kanban: { ...latestDraft.current.kanban, ...patch } })
   }
 
-  function handleBack() {
-    if (isDirty) {
-      if (window.confirm('You have unsaved changes. Discard and go back?')) {
-        discard(); onBack()
-      }
-    } else {
-      onBack()
-    }
-  }
+  useEffect(() => () => {
+    if (saveTimer.current) clearTimeout(saveTimer.current)
+  }, [])
 
   function handleDragEnd({ active, over }) {
     if (!over || active.id === over.id) return
@@ -145,6 +140,19 @@ export default function NotePage({ page, onSave, onBack, registerBack }) {
 
   return (
     <div className="page">
+      <div className="page-meta-row">
+        <select
+          className="category-select"
+          value={draft.category || 'General'}
+          onChange={e => update({ category: e.target.value })}
+        >
+          {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+        </select>
+        <span className={`autosave-status autosave-${saveStatus}`}>
+          {saveStatus === 'saving' ? 'Saving…' : saveStatus === 'pending' ? '●' : 'Saved ✓'}
+        </span>
+      </div>
+
       <Headline value={draft.headline} onChange={v => update({ headline: v })} />
 
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
@@ -160,14 +168,6 @@ export default function NotePage({ page, onSave, onBack, registerBack }) {
           })}
         </SortableContext>
       </DndContext>
-
-      <div className={`save-bar${isDirty ? ' save-bar-visible' : ''}`}>
-        <span className="save-bar-label">Unsaved changes</span>
-        <div className="save-bar-actions">
-          <button className="save-bar-discard" onClick={discard}>Discard</button>
-          <button className="save-bar-save" onClick={save}>Save</button>
-        </div>
-      </div>
     </div>
   )
 }
