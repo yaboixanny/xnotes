@@ -17,7 +17,7 @@ const DEFAULT_ORDER = ['notes', 'checklist', 'broadNotes', 'timeline', 'kanban']
 
 const CATEGORIES = ['General', 'Projects', 'Clients', 'Travel', 'Personal', 'Work']
 
-function getSections(draft, update, updateKanban) {
+function getSections(draft, update, updateKanban, updateChecklist) {
   return {
     notes: {
       title: 'Notes',
@@ -25,7 +25,7 @@ function getSections(draft, update, updateKanban) {
     },
     checklist: {
       title: 'Checklist',
-      content: <Checklist items={draft.checklist} onChange={checklist => update({ checklist })} />,
+      content: <Checklist items={draft.checklist} onChange={updateChecklist} />,
     },
     broadNotes: {
       title: 'Broader Notes',
@@ -121,6 +121,69 @@ export default function NotePage({ page, onSave, onBack }) {
     update({ kanban: { ...latestDraft.current.kanban, ...patch } })
   }
 
+  function updateChecklist(newChecklist) {
+    const old = latestDraft.current.checklist
+    const kanban = latestDraft.current.kanban
+
+    // Collect all existing kanban card ids
+    const inKanban = id =>
+      kanban.todo.some(c => c.id === id) ||
+      kanban.working.some(c => c.id === id) ||
+      kanban.completed.some(c => c.id === id)
+
+    let todo = [...kanban.todo]
+    let working = [...kanban.working]
+    let completed = [...kanban.completed]
+
+    for (const item of newChecklist) {
+      const prev = old.find(o => o.id === item.id)
+
+      if (!prev) {
+        // Newly added — put in todo (if not already in kanban somehow)
+        if (!inKanban(item.id)) {
+          todo = [...todo, { id: item.id, text: item.text }]
+        }
+        continue
+      }
+
+      // Rename — update text in whichever column it's in
+      if (prev.text !== item.text) {
+        const rename = cards => cards.map(c => c.id === item.id ? { ...c, text: item.text } : c)
+        todo = rename(todo)
+        working = rename(working)
+        completed = rename(completed)
+      }
+
+      // Checked → move to completed
+      if (!prev.checked && item.checked) {
+        const card = todo.find(c => c.id === item.id) || working.find(c => c.id === item.id)
+        if (card) {
+          todo = todo.filter(c => c.id !== item.id)
+          working = working.filter(c => c.id !== item.id)
+          completed = [...completed, card]
+        }
+      }
+
+      // Unchecked → move back to todo
+      if (prev.checked && !item.checked) {
+        const card = completed.find(c => c.id === item.id)
+        if (card) {
+          completed = completed.filter(c => c.id !== item.id)
+          todo = [...todo, card]
+        }
+      }
+    }
+
+    // Deleted items — remove from all columns
+    const newIds = new Set(newChecklist.map(i => i.id))
+    const remove = cards => cards.filter(c => !old.find(o => o.id === c.id) || newIds.has(c.id))
+    todo = remove(todo)
+    working = remove(working)
+    completed = remove(completed)
+
+    update({ checklist: newChecklist, kanban: { todo, working, completed } })
+  }
+
   useEffect(() => () => {
     if (saveTimer.current) clearTimeout(saveTimer.current)
   }, [])
@@ -136,7 +199,7 @@ export default function NotePage({ page, onSave, onBack }) {
   }
 
   const order = draft.sectionOrder || DEFAULT_ORDER
-  const sections = getSections(draft, update, updateKanban)
+  const sections = getSections(draft, update, updateKanban, updateChecklist)
 
   return (
     <div className="page">
