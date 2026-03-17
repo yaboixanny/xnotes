@@ -2,29 +2,42 @@ import { useState, useRef, useEffect } from 'react'
 import { signUp, signIn } from '../store/auth'
 
 export default function LandingPage({ isLoggedIn, onSessionStart, onOpenApp }) {
-  const [modalOpen, setModalOpen] = useState(false)
+  const [modalMode, setModalMode] = useState(null) // null | 'login' | 'signup'
 
-  function handleCTA() {
+  function openModal(mode) {
     if (isLoggedIn) { onOpenApp(); return }
-    setModalOpen(true)
+    setModalMode(mode)
   }
-
-  const ctaLabel = isLoggedIn ? 'Open App →' : 'Start Writing — It\'s Free'
 
   return (
     <div className="lp">
-      <LPNav onLogin={handleCTA} isLoggedIn={isLoggedIn} />
-      <Hero onCTA={handleCTA} ctaLabel={ctaLabel} />
+      <LPNav
+        isLoggedIn={isLoggedIn}
+        onLogin={() => openModal('login')}
+        onSignUp={() => openModal('signup')}
+        onOpenApp={onOpenApp}
+      />
+      <Hero
+        isLoggedIn={isLoggedIn}
+        onSignUp={() => openModal('signup')}
+        onLogin={() => openModal('login')}
+        onOpenApp={onOpenApp}
+      />
       <ValueProps />
       <CrossOut />
       <LiveDemo />
       <Comparison />
-      <FinalCTA onCTA={handleCTA} ctaLabel={ctaLabel} />
+      <FinalCTA
+        isLoggedIn={isLoggedIn}
+        onSignUp={() => openModal('signup')}
+        onOpenApp={onOpenApp}
+      />
       <LPFooter />
-      {modalOpen && (
+      {modalMode && (
         <AuthModal
+          initialMode={modalMode === 'signup' ? 'create' : 'login'}
           onSessionStart={onSessionStart}
-          onClose={() => setModalOpen(false)}
+          onClose={() => setModalMode(null)}
         />
       )}
     </div>
@@ -32,23 +45,28 @@ export default function LandingPage({ isLoggedIn, onSessionStart, onOpenApp }) {
 }
 
 /* ── Nav ── */
-function LPNav({ onLogin, isLoggedIn }) {
+function LPNav({ isLoggedIn, onLogin, onSignUp, onOpenApp }) {
   return (
     <nav className="lp-nav">
       <span className="lp-logo">✕ <span>X Note</span></span>
       <div className="lp-nav-links">
         <a href="#features">Features</a>
         <a href="#compare">Compare</a>
-        <button className="lp-nav-login" onClick={onLogin}>
-          {isLoggedIn ? 'Open App →' : 'Log in →'}
-        </button>
+        {isLoggedIn ? (
+          <button className="lp-nav-signup" onClick={onOpenApp}>Open App →</button>
+        ) : (
+          <>
+            <button className="lp-nav-login" onClick={onLogin}>Log in</button>
+            <button className="lp-nav-signup" onClick={onSignUp}>Sign up free →</button>
+          </>
+        )}
       </div>
     </nav>
   )
 }
 
 /* ── Hero ── */
-function Hero({ onCTA, ctaLabel }) {
+function Hero({ isLoggedIn, onSignUp, onLogin, onOpenApp }) {
   return (
     <section className="lp-hero">
       <div className="lp-hero-content">
@@ -61,10 +79,21 @@ function Hero({ onCTA, ctaLabel }) {
           No folders. No loading screens. Just your notes, instantly.<br />
           The minimalist workspace for people who actually want to get things done.
         </p>
-        <button className="lp-cta-btn" onClick={onCTA}>
-          {ctaLabel}
-        </button>
-        <p className="lp-hero-footnote">No account required. Works offline.</p>
+        {isLoggedIn ? (
+          <button className="lp-cta-btn" onClick={onOpenApp}>
+            Open App →
+          </button>
+        ) : (
+          <div className="lp-hero-btns">
+            <button className="lp-cta-btn" onClick={onSignUp}>
+              Start for free →
+            </button>
+            <button className="lp-cta-secondary" onClick={onLogin}>
+              Log in
+            </button>
+          </div>
+        )}
+        <p className="lp-hero-footnote">Free forever · No credit card needed</p>
       </div>
 
       {/* Fake editor mockup */}
@@ -242,12 +271,12 @@ function Comparison() {
 }
 
 /* ── Final CTA ── */
-function FinalCTA({ onCTA, ctaLabel }) {
+function FinalCTA({ isLoggedIn, onSignUp, onOpenApp }) {
   return (
     <section className="lp-final">
       <h2 className="lp-final-title">Ready to simplify<br />your brain?</h2>
-      <button className="lp-cta-btn" onClick={onCTA}>
-        {ctaLabel}
+      <button className="lp-cta-btn" onClick={isLoggedIn ? onOpenApp : onSignUp}>
+        {isLoggedIn ? 'Open App →' : 'Create free account →'}
       </button>
       <p className="lp-final-note">
         Available on Mac, Windows &amp; iOS · Markdown-ready · Forever simple.
@@ -267,8 +296,8 @@ function LPFooter() {
 }
 
 /* ── Auth Modal ── */
-function AuthModal({ onSessionStart, onClose }) {
-  const [mode, setMode] = useState('login')
+function AuthModal({ initialMode = 'login', onSessionStart, onClose }) {
+  const [mode, setMode] = useState(initialMode)
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')

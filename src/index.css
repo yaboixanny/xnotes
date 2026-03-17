@@ -1128,12 +1128,47 @@ body {
   padding: 7px 16px;
   font-size: 13px;
   font-weight: 500;
+  color: var(--lp-muted);
+  cursor: pointer;
+  font-family: var(--lp-font);
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
+}
+.lp-nav-login:hover { border-color: var(--lp-border); color: var(--lp-text); }
+
+.lp-nav-signup {
+  background: var(--lp-accent);
+  border: none;
+  border-radius: 8px;
+  padding: 7px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #111827;
+  cursor: pointer;
+  font-family: var(--lp-font);
+  transition: opacity 0.15s;
+}
+.lp-nav-signup:hover { opacity: 0.88; }
+
+.lp-hero-btns {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.lp-cta-secondary {
+  background: none;
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 12px;
+  padding: 14px 24px;
+  font-size: 15px;
+  font-weight: 600;
   color: var(--lp-text);
   cursor: pointer;
   font-family: var(--lp-font);
   transition: border-color 0.15s, background 0.15s;
 }
-.lp-nav-login:hover { border-color: var(--lp-accent); background: var(--lp-accent-dim); }
+.lp-cta-secondary:hover { border-color: rgba(255,255,255,0.3); background: rgba(255,255,255,0.05); }
 
 /* Shared section helpers */
 .lp-section-label {
