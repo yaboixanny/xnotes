@@ -62,7 +62,6 @@ export default function App() {
       setCurrentId(id)
     } catch (err) {
       console.error('Failed to create note:', err)
-      alert('Could not create note: ' + (err.message || err))
     }
   }
 
