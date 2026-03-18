@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef } from 'react'
 import {
   DndContext, PointerSensor, useSensor, useSensors,
-  DragOverlay, useDroppable, rectIntersection,
+  DragOverlay, rectIntersection,
 } from '@dnd-kit/core'
 import {
-  SortableContext, useSortable, rectSortingStrategy, arrayMove,
+  SortableContext, useSortable, rectSortingStrategy, verticalListSortingStrategy, arrayMove,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 
@@ -154,18 +154,36 @@ export default function HomePage({ pages, user, onCreate, onOpen, onDelete, onUp
 
   // ── DnD ────────────────────────────────────────────────
   function handleDragStart({ active }) {
-    setActiveCard(pages.find(p => p.id === active.id) ?? null)
+    if (sections.includes(active.id)) {
+      setActiveCard(null) // dragging a section
+    } else {
+      setActiveCard(pages.find(p => p.id === active.id) ?? null)
+    }
   }
 
   function handleDragEnd({ active, over }) {
-    setActiveCard(null)
     if (!over || active.id === over.id) return
 
+    // ── Section reorder ──
+    if (sections.includes(active.id)) {
+      setActiveCard(null)
+      const oldIdx = sections.indexOf(active.id)
+      const newIdx = sections.indexOf(over.id)
+      if (oldIdx !== -1 && newIdx !== -1) {
+        const updated = arrayMove(sections, oldIdx, newIdx)
+        setSections(updated)
+        saveSections(updated)
+      }
+      return
+    }
+
+    // ── Card drag ──
+    setActiveCard(null)
     const card = pages.find(p => p.id === active.id)
     if (!card) return
     const fromSection = card.category || 'General'
 
-    // over a section droppable (empty area) → cross-section move
+    // Dropped on a section (empty area) → cross-section move
     if (sections.includes(over.id)) {
       if (fromSection !== over.id) {
         onUpdate(active.id, { category: over.id })
@@ -180,30 +198,28 @@ export default function HomePage({ pages, user, onCreate, onOpen, onDelete, onUp
       return
     }
 
-    // over a card
+    // Dropped on a card
     const overCard = pages.find(p => p.id === over.id)
     if (!overCard) return
     const toSection = overCard.category || 'General'
 
     if (fromSection === toSection) {
-      // Reorder within section
       setCardOrders(prev => {
-        const ids     = grouped[fromSection].map(p => p.id)
-        const oldIdx  = ids.indexOf(active.id)
-        const newIdx  = ids.indexOf(over.id)
+        const ids    = grouped[fromSection].map(p => p.id)
+        const oldIdx = ids.indexOf(active.id)
+        const newIdx = ids.indexOf(over.id)
         if (oldIdx === -1 || newIdx === -1) return prev
         const next = { ...prev, [fromSection]: arrayMove(ids, oldIdx, newIdx) }
         saveOrders(next)
         return next
       })
     } else {
-      // Cross-section drop onto a card
       onUpdate(active.id, { category: toSection })
       setCardOrders(prev => {
         const fromOrder = (prev[fromSection] || grouped[fromSection].map(p => p.id)).filter(id => id !== active.id)
-        const toIds     = prev[toSection] || grouped[toSection].map(p => p.id)
-        const insertAt  = toIds.indexOf(over.id)
-        const toOrder   = insertAt === -1
+        const toIds    = prev[toSection] || grouped[toSection].map(p => p.id)
+        const insertAt = toIds.indexOf(over.id)
+        const toOrder  = insertAt === -1
           ? [...toIds, active.id]
           : [...toIds.slice(0, insertAt), active.id, ...toIds.slice(insertAt)]
         const next = { ...prev, [fromSection]: fromOrder, [toSection]: toOrder }
@@ -281,6 +297,7 @@ export default function HomePage({ pages, user, onCreate, onOpen, onDelete, onUp
           onDragEnd={handleDragEnd}
         >
           <div className="home-sections">
+            <SortableContext items={sections} strategy={verticalListSortingStrategy}>
             {sections.map(section => (
               <DroppableSection
                 key={section}
@@ -294,6 +311,7 @@ export default function HomePage({ pages, user, onCreate, onOpen, onDelete, onUp
                 canDelete={section !== 'General'}
               />
             ))}
+            </SortableContext>
 
             {addingSection ? (
               <div className="add-section-row">
@@ -331,9 +349,13 @@ export default function HomePage({ pages, user, onCreate, onOpen, onDelete, onUp
   )
 }
 
-// ── Droppable section with sortable cards ───────────────
+// ── Sortable + droppable section ────────────────────────
 function DroppableSection({ name, cards, onOpen, onDelete, onRename, onDeleteSection, onCreateInSection, canDelete }) {
-  const { setNodeRef, isOver } = useDroppable({ id: name })
+  const {
+    attributes, listeners, setNodeRef,
+    transform, transition, isDragging, isOver,
+  } = useSortable({ id: name })
+
   const [editing, setEditing]  = useState(false)
   const [editName, setEditName] = useState(name)
   const inputRef = useRef(null)
@@ -346,8 +368,13 @@ function DroppableSection({ name, cards, onOpen, onDelete, onRename, onDeleteSec
   }
 
   return (
-    <div ref={setNodeRef} className={`home-section${isOver ? ' drop-over' : ''}`}>
+    <div
+      ref={setNodeRef}
+      className={`home-section${isOver ? ' drop-over' : ''}${isDragging ? ' section-dragging' : ''}`}
+      style={{ transform: CSS.Transform.toString(transform), transition }}
+    >
       <div className="home-section-header">
+        <span className="section-folder-handle" {...attributes} {...listeners} title="Drag to reorder">⠿</span>
         {editing ? (
           <input
             ref={inputRef}

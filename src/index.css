@@ -515,6 +515,20 @@ body {
   border-bottom: 1px solid var(--border);
 }
 
+.section-folder-handle {
+  color: var(--border);
+  font-size: 14px;
+  cursor: grab;
+  padding: 0 4px 0 0;
+  user-select: none;
+  transition: color 0.15s;
+  flex-shrink: 0;
+}
+.home-section-header:hover .section-folder-handle { color: var(--text-muted); }
+.section-folder-handle:active { cursor: grabbing; }
+
+.section-dragging { opacity: 0.4; }
+
 .home-section-label {
   font-size: 12px;
   font-weight: 600;
