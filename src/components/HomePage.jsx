@@ -672,11 +672,16 @@ function NoteCard({ page, accent, index, onOpen, onDelete, dragHandleProps, over
           <button className="btn-delete note-card-delete" onClick={e => { e.stopPropagation(); onDelete() }}>×</button>
         </div>
 
-        {page.broadNotes ? (
-          <p className="note-card-preview">{page.broadNotes.slice(0, 100)}{page.broadNotes.length > 100 ? '…' : ''}</p>
-        ) : (
-          <p className="note-card-preview note-card-empty-preview">No notes yet…</p>
-        )}
+        {(() => {
+          const preview = Array.isArray(page.broadNotes)
+            ? page.broadNotes.map(n => n.body).filter(Boolean).join(' ').trim()
+            : (page.broadNotes || '')
+          return preview ? (
+            <p className="note-card-preview">{preview.slice(0, 100)}{preview.length > 100 ? '…' : ''}</p>
+          ) : (
+            <p className="note-card-preview note-card-empty-preview">No notes yet…</p>
+          )
+        })()}
 
         {pct !== null && (
           <div className="card-progress">
