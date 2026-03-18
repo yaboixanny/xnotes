@@ -96,6 +96,7 @@ export default function NotePage({ page, onSave, onBack }) {
     setDraft(d)
     latestDraft.current = d
     setSaveStatus('saved')
+    window.scrollTo({ top: 0, behavior: 'instant' })
   }, [page.id])
 
   const triggerSave = useCallback(() => {
@@ -204,13 +205,6 @@ export default function NotePage({ page, onSave, onBack }) {
   return (
     <div className="page">
       <div className="page-meta-row">
-        <select
-          className="category-select"
-          value={draft.category || 'General'}
-          onChange={e => update({ category: e.target.value })}
-        >
-          {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-        </select>
         <span className={`autosave-status autosave-${saveStatus}`}>
           {saveStatus === 'saving' ? 'Saving…' : saveStatus === 'pending' ? '●' : 'Saved ✓'}
         </span>
