@@ -155,37 +155,71 @@ function WeatherWidget() {
 }
 
 // ── News ─────────────────────────────────────────────────
+const NEWS_SOURCES = [
+  { id: 'bbc',        label: 'BBC News',      rss: 'https://feeds.bbci.co.uk/news/rss.xml' },
+  { id: 'guardian',   label: 'The Guardian',  rss: 'https://www.theguardian.com/world/rss' },
+  { id: 'cnn',        label: 'CNN',           rss: 'http://rss.cnn.com/rss/edition.rss' },
+  { id: 'reuters',    label: 'Reuters',       rss: 'https://feeds.reuters.com/reuters/topNews' },
+  { id: 'techcrunch', label: 'TechCrunch',    rss: 'https://techcrunch.com/feed/' },
+  { id: 'ars',        label: 'Ars Technica',  rss: 'https://feeds.arstechnica.com/arstechnica/index' },
+  { id: 'hn',         label: 'Hacker News',   rss: null },
+]
+const NEWS_SOURCE_KEY = 'news-source'
+
+async function fetchSource(source) {
+  if (source.id === 'hn') {
+    const res  = await fetch('https://hn.algolia.com/api/v1/search?tags=front_page&hitsPerPage=5')
+    const data = await res.json()
+    return data.hits.map(h => ({
+      title: h.title,
+      url:   h.url || `https://news.ycombinator.com/item?id=${h.objectID}`,
+      meta:  `${h.points} pts · ${h.author}`,
+    }))
+  }
+  const res  = await fetch(`https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(source.rss)}&count=5`)
+  const data = await res.json()
+  if (data.status !== 'ok') throw new Error('feed error')
+  return data.items.map(i => ({
+    title: i.title,
+    url:   i.link,
+    meta:  new Date(i.pubDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+  }))
+}
+
 function NewsWidget() {
-  const [stories, setStories] = useState([])
-  const [status, setStatus]   = useState('loading')
+  const [sourceId, setSourceId] = useState(() => localStorage.getItem(NEWS_SOURCE_KEY) || 'bbc')
+  const [stories,  setStories]  = useState([])
+  const [status,   setStatus]   = useState('loading')
+
+  const source = NEWS_SOURCES.find(s => s.id === sourceId) || NEWS_SOURCES[0]
 
   useEffect(() => {
-    async function load() {
-      try {
-        const res  = await fetch('https://hn.algolia.com/api/v1/search?tags=front_page&hitsPerPage=5')
-        const data = await res.json()
-        setStories(data.hits.map(h => ({
-          title: h.title,
-          url:   h.url || `https://news.ycombinator.com/item?id=${h.objectID}`,
-          by:    h.author,
-          pts:   h.points,
-        })))
-        setStatus('ok')
-      } catch {
-        setStatus('error')
-      }
-    }
-    load()
-  }, [])
+    setStatus('loading')
+    setStories([])
+    fetchSource(source)
+      .then(items => { setStories(items); setStatus('ok') })
+      .catch(() => setStatus('error'))
+  }, [source.id])
+
+  function changeSource(id) {
+    localStorage.setItem(NEWS_SOURCE_KEY, id)
+    setSourceId(id)
+  }
 
   return (
     <div className="news-widget">
       <div className="news-header">
         <span className="news-title">Top Stories</span>
-        <span className="news-source">via Hacker News</span>
+        <select
+          className="news-source-select"
+          value={sourceId}
+          onChange={e => changeSource(e.target.value)}
+        >
+          {NEWS_SOURCES.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
+        </select>
       </div>
       {status === 'loading' && <div className="news-loading">Loading stories…</div>}
-      {status === 'error'   && <div className="news-loading">Couldn't load stories</div>}
+      {status === 'error'   && <div className="news-loading">Couldn't load — try another source</div>}
       {status === 'ok' && (
         <ol className="news-list">
           {stories.map((s, i) => (
@@ -193,7 +227,7 @@ function NewsWidget() {
               <a href={s.url} target="_blank" rel="noopener noreferrer" className="news-link">
                 {s.title}
               </a>
-              <span className="news-meta">{s.pts} pts · {s.by}</span>
+              <span className="news-meta">{s.meta}</span>
             </li>
           ))}
         </ol>

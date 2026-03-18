@@ -1515,11 +1515,19 @@ body {
   color: var(--text-muted);
 }
 
-.news-source {
-  font-size: 11px;
+.news-source-select {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
   color: var(--text-muted);
-  opacity: 0.5;
+  font-size: 12px;
+  padding: 3px 8px;
+  cursor: pointer;
+  font-family: var(--font);
+  outline: none;
+  transition: border-color 0.15s, color 0.15s;
 }
+.news-source-select:hover, .news-source-select:focus { border-color: var(--accent); color: var(--text); }
 
 .news-loading {
   font-size: 13px;
