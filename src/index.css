@@ -474,13 +474,13 @@ body {
 .btn-new-note {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   background: var(--accent);
   color: #fff;
   border: none;
   border-radius: var(--radius);
-  padding: 11px 20px;
-  font-size: 14px;
+  padding: 14px 26px;
+  font-size: 15px;
   font-weight: 600;
   cursor: pointer;
   font-family: var(--font);
@@ -491,7 +491,7 @@ body {
 .btn-new-note:hover { opacity: 0.92; transform: translateY(-1px); }
 .btn-new-note:active { transform: translateY(0); }
 
-.btn-new-note-icon { font-size: 18px; line-height: 1; margin-top: -1px; }
+.btn-new-note-icon { font-size: 20px; line-height: 1; margin-top: -1px; }
 
 /* Stats */
 .home-stats {
@@ -652,10 +652,10 @@ body {
   background: none;
   border: none;
   color: var(--text-muted);
-  font-size: 18px;
+  font-size: 22px;
   line-height: 1;
   cursor: pointer;
-  padding: 2px 6px;
+  padding: 2px 8px;
   border-radius: 6px;
   transition: color 0.12s, background 0.12s;
   font-family: var(--font);
@@ -666,10 +666,10 @@ body {
   background: none;
   border: none;
   color: var(--text-muted);
-  font-size: 16px;
+  font-size: 18px;
   cursor: pointer;
-  padding: 2px 4px;
-  border-radius: 4px;
+  padding: 2px 7px;
+  border-radius: 6px;
   opacity: 0;
   transition: opacity 0.15s, color 0.12s;
   font-family: var(--font);
@@ -681,10 +681,10 @@ body {
   background: none;
   border: none;
   color: var(--text-muted);
-  font-size: 13px;
+  font-size: 16px;
   cursor: pointer;
-  padding: 2px 4px;
-  border-radius: 4px;
+  padding: 3px 7px;
+  border-radius: 6px;
   line-height: 1;
   margin-left: 2px;
   transition: color 0.12s, background 0.12s;
@@ -707,7 +707,7 @@ body {
   background: none;
   border: 1px dashed var(--border);
   border-radius: var(--radius);
-  padding: 8px 16px;
+  padding: 10px 20px;
   font-size: 13px;
   font-weight: 500;
   color: var(--text-muted);
