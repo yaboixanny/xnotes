@@ -14,7 +14,100 @@ import Kanban from './Kanban'
 
 const DEFAULT_ORDER = ['notes', 'checklist', 'broadNotes', 'kanban']
 
-const CATEGORIES = ['General', 'Projects', 'Clients', 'Travel', 'Personal', 'Work']
+function NoteSummary({ draft }) {
+  const today = new Date().toISOString().split('T')[0]
+
+  const pending = (draft.checklist || []).filter(i => !i.checked)
+  const overdue = pending.filter(i => i.date && i.date < today)
+  const dueToday = pending.filter(i => i.date === today)
+  const upcoming = pending.filter(i => i.date && i.date > today)
+  const undated = pending.filter(i => !i.date)
+
+  const kanban = draft.kanban || { todo: [], working: [], completed: [] }
+  // Only kanban-only items (not linked to checklist)
+  const checklistIds = new Set((draft.checklist || []).map(i => i.id))
+  const todoOnly = kanban.todo.filter(c => !checklistIds.has(c.id))
+  const workingOnly = kanban.working.filter(c => !checklistIds.has(c.id))
+
+  if (pending.length === 0 && todoOnly.length === 0 && workingOnly.length === 0) return null
+
+  function formatDate(str) {
+    const t = new Date().toISOString().split('T')[0]
+    const tm = new Date(Date.now() + 86400000).toISOString().split('T')[0]
+    if (str === t) return 'Today'
+    if (str === tm) return 'Tomorrow'
+    return new Date(str + 'T00:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+  }
+
+  return (
+    <div className="note-summary">
+      <div className="note-summary-title">What needs to be done</div>
+
+      {overdue.length > 0 && (
+        <div className="note-summary-group">
+          <span className="note-summary-label overdue">Overdue</span>
+          {overdue.map(i => (
+            <div key={i.id} className="note-summary-item overdue">
+              <span className="note-summary-dot" />
+              <span>{i.text}</span>
+              <span className="note-summary-date">{formatDate(i.date)}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {dueToday.length > 0 && (
+        <div className="note-summary-group">
+          <span className="note-summary-label today">Today</span>
+          {dueToday.map(i => (
+            <div key={i.id} className="note-summary-item">
+              <span className="note-summary-dot" />
+              <span>{i.text}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {upcoming.length > 0 && (
+        <div className="note-summary-group">
+          <span className="note-summary-label">Upcoming</span>
+          {upcoming.map(i => (
+            <div key={i.id} className="note-summary-item">
+              <span className="note-summary-dot" />
+              <span>{i.text}</span>
+              <span className="note-summary-date">{formatDate(i.date)}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {(undated.length > 0 || todoOnly.length > 0 || workingOnly.length > 0) && (
+        <div className="note-summary-group">
+          <span className="note-summary-label">To do</span>
+          {undated.map(i => (
+            <div key={i.id} className="note-summary-item">
+              <span className="note-summary-dot" />
+              <span>{i.text}</span>
+            </div>
+          ))}
+          {workingOnly.map(c => (
+            <div key={c.id} className="note-summary-item in-progress">
+              <span className="note-summary-dot" />
+              <span>{c.text}</span>
+              <span className="note-summary-date">In progress</span>
+            </div>
+          ))}
+          {todoOnly.map(c => (
+            <div key={c.id} className="note-summary-item">
+              <span className="note-summary-dot" />
+              <span>{c.text}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
 
 function getSections(draft, update, updateKanban, updateChecklist) {
   return {
@@ -206,6 +299,8 @@ export default function NotePage({ page, onSave, onBack }) {
       </div>
 
       <Headline value={draft.headline} onChange={v => update({ headline: v })} />
+
+      <NoteSummary draft={draft} />
 
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
         <SortableContext items={order} strategy={verticalListSortingStrategy}>
