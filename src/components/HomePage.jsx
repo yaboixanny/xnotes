@@ -154,6 +154,54 @@ function WeatherWidget() {
   )
 }
 
+// ── News ─────────────────────────────────────────────────
+function NewsWidget() {
+  const [stories, setStories] = useState([])
+  const [status, setStatus]   = useState('loading')
+
+  useEffect(() => {
+    async function load() {
+      try {
+        const res  = await fetch('https://hn.algolia.com/api/v1/search?tags=front_page&hitsPerPage=5')
+        const data = await res.json()
+        setStories(data.hits.map(h => ({
+          title: h.title,
+          url:   h.url || `https://news.ycombinator.com/item?id=${h.objectID}`,
+          by:    h.author,
+          pts:   h.points,
+        })))
+        setStatus('ok')
+      } catch {
+        setStatus('error')
+      }
+    }
+    load()
+  }, [])
+
+  return (
+    <div className="news-widget">
+      <div className="news-header">
+        <span className="news-title">Top Stories</span>
+        <span className="news-source">via Hacker News</span>
+      </div>
+      {status === 'loading' && <div className="news-loading">Loading stories…</div>}
+      {status === 'error'   && <div className="news-loading">Couldn't load stories</div>}
+      {status === 'ok' && (
+        <ol className="news-list">
+          {stories.map((s, i) => (
+            <li key={i} className="news-item">
+              <a href={s.url} target="_blank" rel="noopener noreferrer" className="news-link">
+                {s.title}
+              </a>
+              <span className="news-meta">{s.pts} pts · {s.by}</span>
+            </li>
+          ))}
+        </ol>
+      )}
+    </div>
+  )
+}
+
 export default function HomePage({ pages, user, onCreate, onOpen, onDelete, onUpdate }) {
   const [sections,    setSections]    = useState(loadSections)
   const [cardOrders,  setCardOrders]  = useState(loadOrders)
@@ -370,6 +418,9 @@ export default function HomePage({ pages, user, onCreate, onOpen, onDelete, onUp
 
       {/* Todo summary */}
       {pages.length > 0 && <TodoSummary pages={pages} onOpen={onOpen} />}
+
+      {/* News */}
+      <NewsWidget />
 
       {pages.length === 0 ? (
         <div className="home-empty">

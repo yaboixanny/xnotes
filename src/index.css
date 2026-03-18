@@ -1491,6 +1491,73 @@ body {
   font-size: 12px;
 }
 
+/* ── News Widget ── */
+.news-widget {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px 20px;
+  animation: fadeUp 0.4s ease both;
+}
+
+.news-header {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.news-title {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.news-source {
+  font-size: 11px;
+  color: var(--text-muted);
+  opacity: 0.5;
+}
+
+.news-loading {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.news-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.news-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border);
+}
+.news-item:last-child { border-bottom: none; padding-bottom: 0; }
+
+.news-link {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text);
+  text-decoration: none;
+  line-height: 1.4;
+  transition: color 0.12s;
+}
+.news-link:hover { color: var(--accent); }
+
+.news-meta {
+  font-size: 11px;
+  color: var(--text-muted);
+  opacity: 0.7;
+}
+
 /* ── Todo Summary ── */
 .todo-summary {
   background: var(--surface);
