@@ -1,12 +1,28 @@
 {
-  "name": "note-app",
+  "name": "x-note",
+  "productName": "X Note",
   "private": true,
-  "version": "0.1.0",
+  "version": "1.0.0",
   "type": "module",
+  "main": "electron/main.cjs",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "electron:dev": "concurrently \"vite\" \"wait-on http://localhost:5173 && NODE_ENV=development electron .\"",
+    "electron:build": "ELECTRON=true vite build && electron-builder"
+  },
+  "build": {
+    "appId": "com.xnote.app",
+    "productName": "X Note",
+    "files": ["dist/**/*", "electron/**/*"],
+    "directories": { "output": "release" },
+    "mac": {
+      "category": "public.app-category.productivity",
+      "target": [{ "target": "dmg", "arch": ["arm64", "x64"] }]
+    },
+    "win": { "target": "nsis" },
+    "linux": { "target": "AppImage" }
   },
   "dependencies": {
     "@dnd-kit/core": "^6.1.0",
@@ -21,6 +37,10 @@
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react": "^4.3.1",
-    "vite": "^5.4.2"
+    "concurrently": "^9.2.1",
+    "electron": "^41.0.3",
+    "electron-builder": "^26.8.1",
+    "vite": "^5.4.2",
+    "wait-on": "^9.0.4"
   }
 }
