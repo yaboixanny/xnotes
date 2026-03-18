@@ -93,9 +93,9 @@ const WMO = {
 
 function WeatherWidget() {
   const [weather, setWeather] = useState(null)
-  const [status, setStatus]   = useState('idle') // idle | loading | denied | error | ok
+  const [status, setStatus]   = useState('loading')
 
-  const fetch_ = useCallback(async () => {
+  const doFetch = useCallback(() => {
     setStatus('loading')
     navigator.geolocation.getCurrentPosition(
       async ({ coords }) => {
@@ -121,23 +121,24 @@ function WeatherWidget() {
     )
   }, [])
 
+  useEffect(() => {
+    doFetch()
+    const interval = setInterval(doFetch, 60 * 60 * 1000) // refresh every hour
+    return () => clearInterval(interval)
+  }, [doFetch])
+
   return (
     <div className="weather-widget">
-      {status === 'idle' && (
-        <button className="weather-prompt" onClick={fetch_}>
-          <span>🌤️</span> Show local weather
-        </button>
-      )}
-      {status === 'loading' && (
+      {status === 'loading' && !weather && (
         <div className="weather-loading">Fetching weather…</div>
       )}
       {status === 'denied' && (
         <div className="weather-error">Location access denied</div>
       )}
-      {status === 'error' && (
-        <div className="weather-error">Couldn't load weather</div>
+      {status === 'error' && !weather && (
+        <div className="weather-error">Couldn't load weather <button className="weather-refresh" onClick={doFetch}>↻</button></div>
       )}
-      {status === 'ok' && weather && (
+      {weather && (
         <div className="weather-content">
           <span className="weather-emoji">{weather.emoji}</span>
           <div className="weather-info">
@@ -146,7 +147,7 @@ function WeatherWidget() {
             <span className="weather-city">{weather.city}</span>
           </div>
           <span className="weather-wind">💨 {weather.wind} km/h</span>
-          <button className="weather-refresh" onClick={fetch_} title="Refresh">↻</button>
+          <button className="weather-refresh" onClick={doFetch} title="Refresh">↻</button>
         </div>
       )}
     </div>
