@@ -10,10 +10,9 @@ import Section from './Section'
 import Headline from './Headline'
 import Notes from './Notes'
 import Checklist from './Checklist'
-import Timeline from './Timeline'
 import Kanban from './Kanban'
 
-const DEFAULT_ORDER = ['notes', 'checklist', 'broadNotes', 'timeline', 'kanban']
+const DEFAULT_ORDER = ['notes', 'checklist', 'broadNotes', 'kanban']
 
 const CATEGORIES = ['General', 'Projects', 'Clients', 'Travel', 'Personal', 'Work']
 
@@ -37,10 +36,6 @@ function getSections(draft, update, updateKanban, updateChecklist) {
           onChange={e => update({ broadNotes: e.target.value })}
         />
       ),
-    },
-    timeline: {
-      title: 'Timeline',
-      content: <Timeline events={draft.timeline} onChange={timeline => update({ timeline })} />,
     },
     kanban: {
       title: 'Board',
