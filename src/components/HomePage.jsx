@@ -159,38 +159,22 @@ async function safeJson(url) {
   try { const r = await fetch(url); if (!r.ok) return null; return await r.json() } catch { return null }
 }
 
-async function fetchWTI() {
-  const yhooUrl = 'https://query1.finance.yahoo.com/v8/finance/chart/CL%3DF?interval=1d&range=1d'
-  const attempts = [
-    yhooUrl,
-    `https://corsproxy.io/?${encodeURIComponent(yhooUrl)}`,
-    `https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(yhooUrl)}`,
-  ]
-  for (const url of attempts) {
-    const data = await safeJson(url)
-    const price = data?.chart?.result?.[0]?.meta?.regularMarketPrice
-    if (price != null) return price.toFixed(2)
-  }
-  return '—'
-}
-
 function MarketWidget() {
   const [data,   setData]   = useState(null)
   const [status, setStatus] = useState('loading')
 
   const doFetch = useCallback(async () => {
     setStatus('loading')
-    const [fx, btc, oil] = await Promise.all([
+    const [fx, btc] = await Promise.all([
       safeJson('https://api.frankfurter.app/latest?from=USD&to=CAD'),
       safeJson('https://api.coinbase.com/v2/prices/BTC-USD/spot'),
-      fetchWTI(),
     ])
 
     const cad    = fx?.rates?.CAD?.toFixed(4) ?? '—'
     const btcAmt = parseFloat(btc?.data?.amount)
     const btcVal = isNaN(btcAmt) ? '—' : Math.round(btcAmt).toLocaleString()
 
-    setData({ cad, btc: btcVal, oil: oil ?? '—' })
+    setData({ cad, btc: btcVal })
     setStatus('ok')
   }, [])
 
@@ -214,10 +198,6 @@ function MarketWidget() {
             <span className="market-label">BTC</span>
             <span className="market-value">${data.btc}</span>
           </div>
-          <div className="market-row">
-            <span className="market-label">WTI Crude</span>
-            <span className="market-value">${data.oil}</span>
-          </div>
           <button className="weather-refresh market-refresh" onClick={doFetch} title="Refresh">↻</button>
         </div>
       )}
@@ -226,49 +206,26 @@ function MarketWidget() {
 }
 
 // ── News ─────────────────────────────────────────────────
+// Guardian uses their official open API (test key is officially supported)
+// All RSS sources go through rss2json which handles parsing server-side
 const NEWS_SOURCES = [
-  { id: 'bbc',        label: 'BBC News',      rss: 'https://feeds.bbci.co.uk/news/rss.xml' },
-  { id: 'guardian',   label: 'The Guardian',  rss: 'https://www.theguardian.com/world/rss' },
-  { id: 'cnn',        label: 'CNN',           rss: 'https://rss.cnn.com/rss/edition.rss' },
-  { id: 'reuters',    label: 'Reuters',       rss: 'https://feeds.reuters.com/reuters/topNews.rss' },
-  { id: 'techcrunch', label: 'TechCrunch',    rss: 'https://techcrunch.com/feed/' },
-  { id: 'ars',        label: 'Ars Technica',  rss: 'https://feeds.arstechnica.com/arstechnica/index' },
-  { id: 'hn',         label: 'Hacker News',   rss: null },
+  { id: 'guardian',   label: 'The Guardian',  type: 'guardian' },
+  { id: 'hn',         label: 'Hacker News',   type: 'hn' },
+  { id: 'bbc',        label: 'BBC News',      type: 'rss', rss: 'https://feeds.bbci.co.uk/news/rss.xml' },
+  { id: 'techcrunch', label: 'TechCrunch',    type: 'rss', rss: 'https://techcrunch.com/feed/' },
+  { id: 'ars',        label: 'Ars Technica',  type: 'rss', rss: 'https://feeds.arstechnica.com/arstechnica/index' },
+  { id: 'cnn',        label: 'CNN',           type: 'rss', rss: 'http://rss.cnn.com/rss/edition.rss' },
 ]
 const NEWS_SOURCE_KEY = 'news-source'
 
-function parsePubDate(str) {
+function fmtDate(str) {
   if (!str) return ''
   const d = new Date(str)
   return isNaN(d) ? '' : d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
 }
 
-function extractItemUrl(item) {
-  // In XML-parsed RSS, <link> is self-closing — the URL sits as a text node *after* it
-  const linkEl = item.querySelector('link')
-  if (linkEl) {
-    // Try text node sibling first (standard RSS 2.0 quirk in XML parsers)
-    let node = linkEl.nextSibling
-    while (node) {
-      const t = node.textContent?.trim()
-      if (t?.startsWith('http')) return t
-      node = node.nextSibling
-    }
-    // Fallback: textContent directly (some feeds)
-    const tc = linkEl.textContent?.trim()
-    if (tc?.startsWith('http')) return tc
-    // Fallback: href attribute (Atom-style)
-    const href = linkEl.getAttribute('href')
-    if (href?.startsWith('http')) return href
-  }
-  // Last resort: <guid> if it looks like a URL
-  const guid = item.querySelector('guid')?.textContent?.trim()
-  if (guid?.startsWith('http')) return guid
-  return '#'
-}
-
 async function fetchSource(source) {
-  if (source.id === 'hn') {
+  if (source.type === 'hn') {
     const res  = await fetch('https://hn.algolia.com/api/v1/search?tags=front_page&hitsPerPage=5')
     const data = await res.json()
     return data.hits.map(h => ({
@@ -277,21 +234,23 @@ async function fetchSource(source) {
       meta:  `${h.points} pts · ${h.author}`,
     }))
   }
-  // corsproxy.io returns raw text directly — simpler and more reliable than allorigins
-  const res  = await fetch(`https://corsproxy.io/?${encodeURIComponent(source.rss)}`)
-  const text = await res.text()
-  const xml  = new DOMParser().parseFromString(text, 'text/xml')
-
-  // Check for parse error
-  if (xml.querySelector('parsererror')) throw new Error('parse error')
-
-  const items = [...xml.querySelectorAll('item')].slice(0, 5)
-  if (!items.length) throw new Error('empty feed')
-
-  return items.map(item => ({
-    title: item.querySelector('title')?.textContent?.trim() || '(no title)',
-    url:   extractItemUrl(item),
-    meta:  parsePubDate(item.querySelector('pubDate')?.textContent),
+  if (source.type === 'guardian') {
+    const res  = await fetch('https://content.guardianapis.com/search?api-key=test&page-size=5&show-fields=trailText')
+    const data = await res.json()
+    return data.response.results.map(r => ({
+      title: r.webTitle,
+      url:   r.webUrl,
+      meta:  fmtDate(r.webPublicationDate),
+    }))
+  }
+  // RSS via rss2json — handles all XML parsing server-side
+  const res  = await fetch(`https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(source.rss)}&count=5`)
+  const data = await res.json()
+  if (data.status !== 'ok') throw new Error(data.message || 'feed error')
+  return data.items.map(i => ({
+    title: i.title,
+    url:   i.link,
+    meta:  fmtDate(i.pubDate),
   }))
 }
 
