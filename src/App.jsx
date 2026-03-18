@@ -1,4 +1,21 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Component } from 'react'
+
+export class ErrorBoundary extends Component {
+  constructor(props) { super(props); this.state = { error: null } }
+  static getDerivedStateFromError(error) { return { error } }
+  render() {
+    if (this.state.error) {
+      return (
+        <div style={{ padding: '40px', fontFamily: 'monospace', color: '#ef4444', background: '#0d0f14', minHeight: '100vh' }}>
+          <h2>Something went wrong</h2>
+          <pre style={{ marginTop: '16px', whiteSpace: 'pre-wrap', fontSize: '13px', color: '#aaa' }}>{this.state.error.message}</pre>
+          <button onClick={() => window.location.reload()} style={{ marginTop: '24px', padding: '8px 16px', cursor: 'pointer' }}>Reload</button>
+        </div>
+      )
+    }
+    return this.props.children
+  }
+}
 import { supabase } from './store/supabase'
 import { signOut } from './store/auth'
 import { useAppStore } from './store/useStore'
