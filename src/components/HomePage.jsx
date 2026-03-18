@@ -290,6 +290,7 @@ export default function HomePage({ pages, user, onCreate, onOpen, onDelete, onUp
                 onDelete={onDelete}
                 onRename={renameSection}
                 onDeleteSection={deleteSection}
+                onCreateInSection={() => onCreate(section)}
                 canDelete={section !== 'General'}
               />
             ))}
@@ -331,7 +332,7 @@ export default function HomePage({ pages, user, onCreate, onOpen, onDelete, onUp
 }
 
 // ── Droppable section with sortable cards ───────────────
-function DroppableSection({ name, cards, onOpen, onDelete, onRename, onDeleteSection, canDelete }) {
+function DroppableSection({ name, cards, onOpen, onDelete, onRename, onDeleteSection, onCreateInSection, canDelete }) {
   const { setNodeRef, isOver } = useDroppable({ id: name })
   const [editing, setEditing]  = useState(false)
   const [editName, setEditName] = useState(name)
@@ -365,6 +366,7 @@ function DroppableSection({ name, cards, onOpen, onDelete, onRename, onDeleteSec
           </span>
         )}
         <span className="home-section-count">{cards.length}</span>
+        <button className="btn-section-add" onClick={onCreateInSection} title="New note in this section">+</button>
         {canDelete && (
           <button className="btn-section-delete" onClick={() => onDeleteSection(name)} title="Delete section">×</button>
         )}

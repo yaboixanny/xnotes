@@ -54,9 +54,10 @@ export default function App() {
     setView('landing')
   }
 
-  async function handleCreate() {
+  async function handleCreate(category) {
     try {
       const id = await createPage()
+      if (category && category !== 'General') await updatePage(id, { category })
       setCurrentId(id)
     } catch (err) {
       console.error('Failed to create note:', err)
