@@ -2,11 +2,24 @@ import { useState, useEffect } from 'react'
 import { supabase } from './supabase'
 
 // ── DB ↔ App field mapping ──────────────────────────────
+function parseBroadNotes(raw) {
+  if (Array.isArray(raw)) return raw
+  if (typeof raw === 'string' && raw.trim()) {
+    try {
+      const parsed = JSON.parse(raw)
+      if (Array.isArray(parsed)) return parsed
+    } catch {}
+    // Migrate old plain-text format into a single card
+    return [{ id: crypto.randomUUID(), title: '', body: raw }]
+  }
+  return []
+}
+
 function dbToPage(row) {
   return {
     id: row.id,
     headline: row.headline || '',
-    broadNotes: row.broad_notes || '',
+    broadNotes: parseBroadNotes(row.broad_notes),
     quickNotes: row.quick_notes || [],
     checklist: row.checklist || [],
     timeline: row.timeline || [],
@@ -33,7 +46,10 @@ function pageToDb(patch) {
   }
   const result = {}
   for (const [appKey, dbKey] of Object.entries(map)) {
-    if (patch[appKey] !== undefined) result[dbKey] = patch[appKey]
+    if (patch[appKey] !== undefined) {
+      // broadNotes is stored as JSON string in the text column
+      result[dbKey] = appKey === 'broadNotes' ? JSON.stringify(patch[appKey]) : patch[appKey]
+    }
   }
   return result
 }

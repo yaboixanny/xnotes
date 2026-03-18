@@ -1420,23 +1420,101 @@ body {
 }
 
 /* ── Broad Notes ── */
-.broad-notes {
-  width: 100%;
-  min-height: 150px;
-  background: var(--surface2);
+.broad-notes-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.broad-note-card {
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--surface2);
+  transition: border-color 0.15s;
+}
+
+.broad-note-card.open {
+  border-color: var(--accent);
+}
+
+.broad-note-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.broad-note-header:hover {
+  background: var(--surface);
+}
+
+.broad-note-chevron {
+  font-size: 11px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+  width: 12px;
+}
+
+.broad-note-title-input {
+  flex: 1;
+  background: none;
+  border: none;
+  outline: none;
+  font-family: var(--font);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text);
+  cursor: pointer;
+  min-width: 0;
+}
+
+.broad-note-title-input::placeholder {
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+.broad-note-body {
+  width: 100%;
+  min-height: 130px;
+  background: var(--surface);
+  border: none;
+  border-top: 1px solid var(--border);
   color: var(--text);
   font-family: var(--font);
   font-size: 14px;
-  padding: 12px;
+  padding: 12px 14px;
   resize: vertical;
   outline: none;
-  transition: border-color 0.15s;
   line-height: 1.7;
 }
-.broad-notes:focus { border-color: var(--accent); }
-.broad-notes::placeholder { color: var(--text-muted); }
+
+.broad-note-body::placeholder { color: var(--text-muted); }
+
+.btn-add-broad {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+  padding: 7px 14px;
+  background: none;
+  border: 1px dashed var(--border);
+  border-radius: 6px;
+  color: var(--text-muted);
+  font-family: var(--font);
+  font-size: 13px;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+  width: 100%;
+  justify-content: center;
+}
+
+.btn-add-broad:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+}
 
 
 /* ── Goals ── */

@@ -11,6 +11,7 @@ import Headline from './Headline'
 import Notes from './Notes'
 import Checklist from './Checklist'
 import Kanban from './Kanban'
+import BroadNotes from './BroadNotes'
 
 const DEFAULT_ORDER = ['notes', 'checklist', 'broadNotes', 'kanban']
 
@@ -122,12 +123,7 @@ function getSections(draft, update, updateKanban, updateChecklist) {
     broadNotes: {
       title: 'Broader Notes',
       content: (
-        <textarea
-          className="broad-notes"
-          placeholder="Write anything here…"
-          value={draft.broadNotes}
-          onChange={e => update({ broadNotes: e.target.value })}
-        />
+        <BroadNotes value={draft.broadNotes} onChange={broadNotes => update({ broadNotes })} />
       ),
     },
     kanban: {
