@@ -48,7 +48,7 @@ function BroadNoteCard({ note, isOpen, onToggle, onUpdate, onDelete }) {
         <input
           className="broad-note-title-input"
           placeholder="Untitled note"
-          value={note.title}
+          value={note.title ?? ''}
           onClick={e => e.stopPropagation()}
           onChange={e => onUpdate({ title: e.target.value })}
         />
@@ -61,7 +61,7 @@ function BroadNoteCard({ note, isOpen, onToggle, onUpdate, onDelete }) {
         <textarea
           className="broad-note-body"
           placeholder="Write anything here…"
-          value={note.body}
+          value={note.body ?? ''}
           onChange={e => onUpdate({ body: e.target.value })}
           autoFocus
         />

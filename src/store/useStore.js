@@ -1,16 +1,22 @@
 import { useState, useEffect } from 'react'
+import { v4 as uuid } from 'uuid'
 import { supabase } from './supabase'
 
 // ── DB ↔ App field mapping ──────────────────────────────
 function parseBroadNotes(raw) {
-  if (Array.isArray(raw)) return raw
-  if (typeof raw === 'string' && raw.trim()) {
-    try {
+  try {
+    if (Array.isArray(raw)) return raw
+    if (typeof raw === 'string' && raw.trim()) {
       const parsed = JSON.parse(raw)
       if (Array.isArray(parsed)) return parsed
-    } catch {}
-    // Migrate old plain-text format into a single card
-    return [{ id: crypto.randomUUID(), title: '', body: raw }]
+      // Valid JSON but not an array — treat as migration
+      return [{ id: uuid(), title: '', body: raw }]
+    }
+  } catch {
+    // Invalid JSON string — treat as old plain-text format
+    if (typeof raw === 'string' && raw.trim()) {
+      return [{ id: uuid(), title: '', body: raw }]
+    }
   }
   return []
 }
