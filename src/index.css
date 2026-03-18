@@ -403,13 +403,63 @@ body {
   gap: 12px;
 }
 
+.home-hero-widgets {
+  display: flex;
+  gap: 10px;
+  align-items: stretch;
+}
+
 /* Weather widget */
 .weather-widget {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 10px 16px;
-  min-width: 200px;
+  min-width: 190px;
+}
+
+/* Market widget */
+.market-widget {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px 16px;
+  min-width: 160px;
+  display: flex;
+  align-items: center;
+}
+
+.market-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  width: 100%;
+  position: relative;
+}
+
+.market-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.market-label {
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.market-value {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.market-refresh {
+  align-self: flex-end;
+  margin-top: 2px;
 }
 
 

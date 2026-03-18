@@ -154,6 +154,67 @@ function WeatherWidget() {
   )
 }
 
+// ── Market ───────────────────────────────────────────────
+function MarketWidget() {
+  const [data,   setData]   = useState(null)
+  const [status, setStatus] = useState('loading')
+
+  const doFetch = useCallback(async () => {
+    try {
+      // USD→CAD + BTC via Coinbase (free, no key)
+      // WTI via a free commodities endpoint
+      const [fxRes, btcRes, oilRes] = await Promise.all([
+        fetch('https://api.coinbase.com/v2/exchange-rates?currency=USD'),
+        fetch('https://api.coinbase.com/v2/prices/BTC-USD/spot'),
+        fetch('https://query1.finance.yahoo.com/v8/finance/chart/CL%3DF?interval=1d&range=1d'),
+      ])
+      const fxData  = await fxRes.json()
+      const btcData = await btcRes.json()
+      const oilData = await oilRes.json()
+
+      const cad    = parseFloat(fxData.data.rates.CAD).toFixed(4)
+      const btc    = Math.round(parseFloat(btcData.data.amount)).toLocaleString()
+      const oilMeta = oilData.chart?.result?.[0]?.meta
+      const oil    = oilMeta?.regularMarketPrice?.toFixed(2) ?? '—'
+
+      setData({ cad, btc, oil })
+      setStatus('ok')
+    } catch {
+      setStatus('error')
+    }
+  }, [])
+
+  useEffect(() => {
+    doFetch()
+    const interval = setInterval(doFetch, 60 * 60 * 1000)
+    return () => clearInterval(interval)
+  }, [doFetch])
+
+  return (
+    <div className="market-widget">
+      {status === 'loading' && !data && <div className="weather-loading">Loading markets…</div>}
+      {status === 'error'   && !data && <div className="weather-error">Couldn't load markets</div>}
+      {data && (
+        <div className="market-rows">
+          <div className="market-row">
+            <span className="market-label">USD → CAD</span>
+            <span className="market-value">{data.cad}</span>
+          </div>
+          <div className="market-row">
+            <span className="market-label">BTC</span>
+            <span className="market-value">${data.btc}</span>
+          </div>
+          <div className="market-row">
+            <span className="market-label">WTI Crude</span>
+            <span className="market-value">${data.oil}</span>
+          </div>
+          <button className="weather-refresh market-refresh" onClick={doFetch} title="Refresh">↻</button>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── News ─────────────────────────────────────────────────
 const NEWS_SOURCES = [
   { id: 'bbc',        label: 'BBC News',      rss: 'https://feeds.bbci.co.uk/news/rss.xml' },
@@ -412,7 +473,10 @@ export default function HomePage({ pages, user, onCreate, onOpen, onDelete, onUp
           <p className="home-date">{today}</p>
         </div>
         <div className="home-hero-right">
-          <WeatherWidget />
+          <div className="home-hero-widgets">
+            <WeatherWidget />
+            <MarketWidget />
+          </div>
           <button className="btn-new-note" onClick={onCreate}>
             <span className="btn-new-note-icon">+</span>
             New Note
