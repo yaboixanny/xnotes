@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import {
   DndContext, PointerSensor, useSensor, useSensors,
   DragOverlay, rectIntersection,
@@ -78,6 +78,79 @@ function applySectionOrder(order, cards) {
   const ordered = order.map(id => byId[id]).filter(Boolean)
   const rest    = cards.filter(c => !order.includes(c.id))
   return [...ordered, ...rest]
+}
+
+// ── Weather ──────────────────────────────────────────────
+const WMO = {
+  0: ['Clear', '☀️'], 1: ['Mostly Clear', '🌤️'], 2: ['Partly Cloudy', '⛅'], 3: ['Overcast', '☁️'],
+  45: ['Foggy', '🌫️'], 48: ['Foggy', '🌫️'],
+  51: ['Light Drizzle', '🌦️'], 53: ['Drizzle', '🌦️'], 55: ['Heavy Drizzle', '🌧️'],
+  61: ['Light Rain', '🌧️'], 63: ['Rain', '🌧️'], 65: ['Heavy Rain', '🌧️'],
+  71: ['Light Snow', '🌨️'], 73: ['Snow', '❄️'], 75: ['Heavy Snow', '❄️'],
+  80: ['Showers', '🌦️'], 81: ['Showers', '🌧️'], 82: ['Heavy Showers', '🌧️'],
+  95: ['Thunderstorm', '⛈️'], 96: ['Thunderstorm', '⛈️'], 99: ['Thunderstorm', '⛈️'],
+}
+
+function WeatherWidget() {
+  const [weather, setWeather] = useState(null)
+  const [status, setStatus]   = useState('idle') // idle | loading | denied | error | ok
+
+  const fetch_ = useCallback(async () => {
+    setStatus('loading')
+    navigator.geolocation.getCurrentPosition(
+      async ({ coords }) => {
+        try {
+          const { latitude: lat, longitude: lon } = coords
+          const [wRes, gRes] = await Promise.all([
+            fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&temperature_unit=celsius`),
+            fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`),
+          ])
+          const wData = await wRes.json()
+          const gData = await gRes.json()
+          const cw    = wData.current_weather
+          const [condition, emoji] = WMO[cw.weathercode] ?? ['Unknown', '🌡️']
+          const city = gData.address?.city || gData.address?.town || gData.address?.village || gData.address?.county || 'Your Location'
+          setWeather({ temp: Math.round(cw.temperature), condition, emoji, city, wind: Math.round(cw.windspeed) })
+          setStatus('ok')
+        } catch {
+          setStatus('error')
+        }
+      },
+      () => setStatus('denied'),
+      { timeout: 8000 }
+    )
+  }, [])
+
+  return (
+    <div className="weather-widget">
+      {status === 'idle' && (
+        <button className="weather-prompt" onClick={fetch_}>
+          <span>🌤️</span> Show local weather
+        </button>
+      )}
+      {status === 'loading' && (
+        <div className="weather-loading">Fetching weather…</div>
+      )}
+      {status === 'denied' && (
+        <div className="weather-error">Location access denied</div>
+      )}
+      {status === 'error' && (
+        <div className="weather-error">Couldn't load weather</div>
+      )}
+      {status === 'ok' && weather && (
+        <div className="weather-content">
+          <span className="weather-emoji">{weather.emoji}</span>
+          <div className="weather-info">
+            <span className="weather-temp">{weather.temp}°C</span>
+            <span className="weather-condition">{weather.condition}</span>
+            <span className="weather-city">{weather.city}</span>
+          </div>
+          <span className="weather-wind">💨 {weather.wind} km/h</span>
+          <button className="weather-refresh" onClick={fetch_} title="Refresh">↻</button>
+        </div>
+      )}
+    </div>
+  )
 }
 
 export default function HomePage({ pages, user, onCreate, onOpen, onDelete, onUpdate }) {
@@ -255,10 +328,13 @@ export default function HomePage({ pages, user, onCreate, onOpen, onDelete, onUp
           <h1 className="home-title">My Notes</h1>
           <p className="home-date">{today}</p>
         </div>
-        <button className="btn-new-note" onClick={onCreate}>
-          <span className="btn-new-note-icon">+</span>
-          New Note
-        </button>
+        <div className="home-hero-right">
+          <WeatherWidget />
+          <button className="btn-new-note" onClick={onCreate}>
+            <span className="btn-new-note-icon">+</span>
+            New Note
+          </button>
+        </div>
       </div>
 
       {/* Stats */}
