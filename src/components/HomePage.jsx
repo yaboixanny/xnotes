@@ -164,14 +164,14 @@ function MarketWidget() {
   const [status, setStatus] = useState('loading')
 
   const doFetch = useCallback(async () => {
-    // Each fetch is independent — one failure won't blank the whole widget
+    setStatus('loading')
     const [fx, btc, oil] = await Promise.all([
       safeJson('https://api.frankfurter.app/latest?from=USD&to=CAD'),
       safeJson('https://api.coinbase.com/v2/prices/BTC-USD/spot'),
       safeJson('https://query2.finance.yahoo.com/v8/finance/chart/CL%3DF?interval=1d&range=1d'),
     ])
 
-    const cad = fx?.rates?.CAD?.toFixed(4)   ?? '—'
+    const cad    = fx?.rates?.CAD?.toFixed(4) ?? '—'
     const btcAmt = parseFloat(btc?.data?.amount)
     const btcVal = isNaN(btcAmt) ? '—' : Math.round(btcAmt).toLocaleString()
     const oilAmt = oil?.chart?.result?.[0]?.meta?.regularMarketPrice
@@ -216,8 +216,8 @@ function MarketWidget() {
 const NEWS_SOURCES = [
   { id: 'bbc',        label: 'BBC News',      rss: 'https://feeds.bbci.co.uk/news/rss.xml' },
   { id: 'guardian',   label: 'The Guardian',  rss: 'https://www.theguardian.com/world/rss' },
-  { id: 'cnn',        label: 'CNN',           rss: 'http://rss.cnn.com/rss/edition.rss' },
-  { id: 'reuters',    label: 'Reuters',       rss: 'https://feeds.reuters.com/reuters/topNews' },
+  { id: 'cnn',        label: 'CNN',           rss: 'https://rss.cnn.com/rss/edition.rss' },
+  { id: 'reuters',    label: 'Reuters',       rss: 'https://feeds.reuters.com/reuters/topNews.rss' },
   { id: 'techcrunch', label: 'TechCrunch',    rss: 'https://techcrunch.com/feed/' },
   { id: 'ars',        label: 'Ars Technica',  rss: 'https://feeds.arstechnica.com/arstechnica/index' },
   { id: 'hn',         label: 'Hacker News',   rss: null },
@@ -230,6 +230,30 @@ function parsePubDate(str) {
   return isNaN(d) ? '' : d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
 }
 
+function extractItemUrl(item) {
+  // In XML-parsed RSS, <link> is self-closing — the URL sits as a text node *after* it
+  const linkEl = item.querySelector('link')
+  if (linkEl) {
+    // Try text node sibling first (standard RSS 2.0 quirk in XML parsers)
+    let node = linkEl.nextSibling
+    while (node) {
+      const t = node.textContent?.trim()
+      if (t?.startsWith('http')) return t
+      node = node.nextSibling
+    }
+    // Fallback: textContent directly (some feeds)
+    const tc = linkEl.textContent?.trim()
+    if (tc?.startsWith('http')) return tc
+    // Fallback: href attribute (Atom-style)
+    const href = linkEl.getAttribute('href')
+    if (href?.startsWith('http')) return href
+  }
+  // Last resort: <guid> if it looks like a URL
+  const guid = item.querySelector('guid')?.textContent?.trim()
+  if (guid?.startsWith('http')) return guid
+  return '#'
+}
+
 async function fetchSource(source) {
   if (source.id === 'hn') {
     const res  = await fetch('https://hn.algolia.com/api/v1/search?tags=front_page&hitsPerPage=5')
@@ -240,21 +264,22 @@ async function fetchSource(source) {
       meta:  `${h.points} pts · ${h.author}`,
     }))
   }
-  const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(source.rss)}`
-  const res    = await fetch(proxyUrl)
-  const json   = await res.json()
-  const xml    = new DOMParser().parseFromString(json.contents, 'text/xml')
-  const items  = [...xml.querySelectorAll('item')].slice(0, 5)
+  // corsproxy.io returns raw text directly — simpler and more reliable than allorigins
+  const res  = await fetch(`https://corsproxy.io/?${encodeURIComponent(source.rss)}`)
+  const text = await res.text()
+  const xml  = new DOMParser().parseFromString(text, 'text/xml')
+
+  // Check for parse error
+  if (xml.querySelector('parsererror')) throw new Error('parse error')
+
+  const items = [...xml.querySelectorAll('item')].slice(0, 5)
   if (!items.length) throw new Error('empty feed')
-  return items.map(item => {
-    const title = item.querySelector('title')?.textContent?.trim()
-    // <link> in RSS is text node after element, try multiple selectors
-    const link =
-      item.querySelector('link')?.nextSibling?.textContent?.trim() ||
-      item.querySelector('link')?.textContent?.trim() ||
-      item.querySelector('guid')?.textContent?.trim() || '#'
-    return { title, url: link, meta: parsePubDate(item.querySelector('pubDate')?.textContent) }
-  })
+
+  return items.map(item => ({
+    title: item.querySelector('title')?.textContent?.trim() || '(no title)',
+    url:   extractItemUrl(item),
+    meta:  parsePubDate(item.querySelector('pubDate')?.textContent),
+  }))
 }
 
 function NewsWidget() {
