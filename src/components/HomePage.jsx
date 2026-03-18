@@ -155,37 +155,30 @@ function WeatherWidget() {
 }
 
 // ── Market ───────────────────────────────────────────────
-const PROXY = url => `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`
+async function safeJson(url) {
+  try { const r = await fetch(url); return await r.json() } catch { return null }
+}
 
 function MarketWidget() {
   const [data,   setData]   = useState(null)
   const [status, setStatus] = useState('loading')
 
   const doFetch = useCallback(async () => {
-    try {
-      const [fxRes, btcRes, oilRes] = await Promise.all([
-        fetch('https://open.er-api.com/v6/latest/USD'),
-        fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd'),
-        fetch(PROXY('https://query1.finance.yahoo.com/v8/finance/chart/CL%3DF?interval=1d&range=1d')),
-      ])
-      const fxData  = await fxRes.json()
-      const btcData = await btcRes.json()
-      const oilProxy = await oilRes.json()
+    // Each fetch is independent — one failure won't blank the whole widget
+    const [fx, btc, oil] = await Promise.all([
+      safeJson('https://api.frankfurter.app/latest?from=USD&to=CAD'),
+      safeJson('https://api.coinbase.com/v2/prices/BTC-USD/spot'),
+      safeJson('https://query2.finance.yahoo.com/v8/finance/chart/CL%3DF?interval=1d&range=1d'),
+    ])
 
-      const cad = fxData.rates?.CAD?.toFixed(4) ?? '—'
-      const btc = Math.round(btcData.bitcoin?.usd ?? 0).toLocaleString()
+    const cad = fx?.rates?.CAD?.toFixed(4)   ?? '—'
+    const btcAmt = parseFloat(btc?.data?.amount)
+    const btcVal = isNaN(btcAmt) ? '—' : Math.round(btcAmt).toLocaleString()
+    const oilAmt = oil?.chart?.result?.[0]?.meta?.regularMarketPrice
+    const oilVal = oilAmt != null ? oilAmt.toFixed(2) : '—'
 
-      let oil = '—'
-      try {
-        const oilData = JSON.parse(oilProxy.contents)
-        oil = oilData.chart?.result?.[0]?.meta?.regularMarketPrice?.toFixed(2) ?? '—'
-      } catch {}
-
-      setData({ cad, btc, oil })
-      setStatus('ok')
-    } catch {
-      setStatus('error')
-    }
+    setData({ cad, btc: btcVal, oil: oilVal })
+    setStatus('ok')
   }, [])
 
   useEffect(() => {
@@ -247,7 +240,8 @@ async function fetchSource(source) {
       meta:  `${h.points} pts · ${h.author}`,
     }))
   }
-  const res    = await fetch(PROXY(source.rss))
+  const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(source.rss)}`
+  const res    = await fetch(proxyUrl)
   const json   = await res.json()
   const xml    = new DOMParser().parseFromString(json.contents, 'text/xml')
   const items  = [...xml.querySelectorAll('item')].slice(0, 5)
