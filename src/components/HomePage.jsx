@@ -156,7 +156,22 @@ function WeatherWidget() {
 
 // ── Market ───────────────────────────────────────────────
 async function safeJson(url) {
-  try { const r = await fetch(url); return await r.json() } catch { return null }
+  try { const r = await fetch(url); if (!r.ok) return null; return await r.json() } catch { return null }
+}
+
+async function fetchWTI() {
+  const yhooUrl = 'https://query1.finance.yahoo.com/v8/finance/chart/CL%3DF?interval=1d&range=1d'
+  const attempts = [
+    yhooUrl,
+    `https://corsproxy.io/?${encodeURIComponent(yhooUrl)}`,
+    `https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(yhooUrl)}`,
+  ]
+  for (const url of attempts) {
+    const data = await safeJson(url)
+    const price = data?.chart?.result?.[0]?.meta?.regularMarketPrice
+    if (price != null) return price.toFixed(2)
+  }
+  return '—'
 }
 
 function MarketWidget() {
@@ -168,16 +183,14 @@ function MarketWidget() {
     const [fx, btc, oil] = await Promise.all([
       safeJson('https://api.frankfurter.app/latest?from=USD&to=CAD'),
       safeJson('https://api.coinbase.com/v2/prices/BTC-USD/spot'),
-      safeJson(`https://corsproxy.io/?${encodeURIComponent('https://query1.finance.yahoo.com/v8/finance/chart/CL%3DF?interval=1d&range=1d')}`),
+      fetchWTI(),
     ])
 
     const cad    = fx?.rates?.CAD?.toFixed(4) ?? '—'
     const btcAmt = parseFloat(btc?.data?.amount)
     const btcVal = isNaN(btcAmt) ? '—' : Math.round(btcAmt).toLocaleString()
-    const oilAmt = oil?.chart?.result?.[0]?.meta?.regularMarketPrice
-    const oilVal = oilAmt != null ? oilAmt.toFixed(2) : '—'
 
-    setData({ cad, btc: btcVal, oil: oilVal })
+    setData({ cad, btc: btcVal, oil: oil ?? '—' })
     setStatus('ok')
   }, [])
 
