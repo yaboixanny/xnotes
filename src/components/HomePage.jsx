@@ -8,8 +8,14 @@ import {
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 
-const SECTIONS_KEY = 'note-sections'
-const ORDERS_KEY   = 'note-card-orders'
+const SECTIONS_KEY   = 'note-sections'
+const ORDERS_KEY     = 'note-card-orders'
+const COLLAPSED_KEY  = 'note-sections-collapsed'
+
+function loadCollapsed() {
+  try { return JSON.parse(localStorage.getItem(COLLAPSED_KEY)) || {} } catch { return {} }
+}
+function saveCollapsed(c) { localStorage.setItem(COLLAPSED_KEY, JSON.stringify(c)) }
 const CARD_ACCENTS = ['#4a6cf7', '#e05c97', '#f0a030', '#3ecf8e', '#a855f7', '#0ea5e9']
 
 function getAccent(id) {
@@ -77,6 +83,7 @@ function applySectionOrder(order, cards) {
 export default function HomePage({ pages, user, onCreate, onOpen, onDelete, onUpdate }) {
   const [sections,    setSections]    = useState(loadSections)
   const [cardOrders,  setCardOrders]  = useState(loadOrders)
+  const [collapsed,   setCollapsed]   = useState(loadCollapsed)
   const [activeCard,  setActiveCard]  = useState(null)
   const [addingSection, setAddingSection] = useState(false)
   const [newSectionName, setNewSectionName] = useState('')
@@ -137,6 +144,14 @@ export default function HomePage({ pages, user, onCreate, onOpen, onDelete, onUp
     saveSections(updated)
     pages.filter(p => (p.category || 'General') === name)
       .forEach(p => onUpdate(p.id, { category: 'General' }))
+  }
+
+  function toggleCollapse(name) {
+    setCollapsed(prev => {
+      const next = { ...prev, [name]: !prev[name] }
+      saveCollapsed(next)
+      return next
+    })
   }
 
   // ── Build ordered groups ────────────────────────────────
@@ -303,6 +318,8 @@ export default function HomePage({ pages, user, onCreate, onOpen, onDelete, onUp
                 key={section}
                 name={section}
                 cards={grouped[section] || []}
+                isCollapsed={!!collapsed[section]}
+                onToggleCollapse={() => toggleCollapse(section)}
                 onOpen={onOpen}
                 onDelete={onDelete}
                 onRename={renameSection}
@@ -350,7 +367,7 @@ export default function HomePage({ pages, user, onCreate, onOpen, onDelete, onUp
 }
 
 // ── Sortable + droppable section ────────────────────────
-function DroppableSection({ name, cards, onOpen, onDelete, onRename, onDeleteSection, onCreateInSection, canDelete }) {
+function DroppableSection({ name, cards, isCollapsed, onToggleCollapse, onOpen, onDelete, onRename, onDeleteSection, onCreateInSection, canDelete }) {
   const {
     attributes, listeners, setNodeRef,
     transform, transition, isDragging, isOver,
@@ -370,7 +387,7 @@ function DroppableSection({ name, cards, onOpen, onDelete, onRename, onDeleteSec
   return (
     <div
       ref={setNodeRef}
-      className={`home-section${isOver ? ' drop-over' : ''}${isDragging ? ' section-dragging' : ''}`}
+      className={`home-section${isOver ? ' drop-over' : ''}${isDragging ? ' section-dragging' : ''}${isCollapsed ? ' section-collapsed' : ''}`}
       style={{ transform: CSS.Transform.toString(transform), transition }}
     >
       <div className="home-section-header">
@@ -397,23 +414,28 @@ function DroppableSection({ name, cards, onOpen, onDelete, onRename, onDeleteSec
         {canDelete && (
           <button className="btn-section-delete" onClick={() => onDeleteSection(name)} title="Delete section">×</button>
         )}
+        <button className="btn-section-collapse" onClick={onToggleCollapse} title={isCollapsed ? 'Expand' : 'Collapse'}>
+          {isCollapsed ? '▸' : '▾'}
+        </button>
       </div>
 
-      <SortableContext items={cards.map(c => c.id)} strategy={rectSortingStrategy}>
-        <div className="home-grid">
-          {cards.length === 0 && <div className="home-section-empty">Drop notes here</div>}
-          {cards.map((page, i) => (
-            <SortableCard
-              key={page.id}
-              page={page}
-              index={i}
-              accent={getAccent(page.id)}
-              onOpen={() => onOpen(page.id)}
-              onDelete={() => onDelete(page.id)}
-            />
-          ))}
-        </div>
-      </SortableContext>
+      {!isCollapsed && (
+        <SortableContext items={cards.map(c => c.id)} strategy={rectSortingStrategy}>
+          <div className="home-grid">
+            {cards.length === 0 && <div className="home-section-empty">Drop notes here</div>}
+            {cards.map((page, i) => (
+              <SortableCard
+                key={page.id}
+                page={page}
+                index={i}
+                accent={getAccent(page.id)}
+                onOpen={() => onOpen(page.id)}
+                onDelete={() => onDelete(page.id)}
+              />
+            ))}
+          </div>
+        </SortableContext>
+      )}
     </div>
   )
 }

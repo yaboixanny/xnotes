@@ -602,6 +602,22 @@ body {
 .home-section-header:hover .btn-section-delete { opacity: 1; }
 .btn-section-delete:hover { color: var(--red); }
 
+.btn-section-collapse {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 13px;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 4px;
+  line-height: 1;
+  margin-left: 2px;
+  transition: color 0.12s, background 0.12s;
+}
+.btn-section-collapse:hover { color: var(--text); background: var(--surface2); }
+
+.section-collapsed .home-section-header { border-bottom: none; }
+
 /* Grid */
 .home-grid {
   display: grid;
