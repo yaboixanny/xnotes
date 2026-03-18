@@ -168,7 +168,7 @@ function MarketWidget() {
     const [fx, btc, oil] = await Promise.all([
       safeJson('https://api.frankfurter.app/latest?from=USD&to=CAD'),
       safeJson('https://api.coinbase.com/v2/prices/BTC-USD/spot'),
-      safeJson('https://query2.finance.yahoo.com/v8/finance/chart/CL%3DF?interval=1d&range=1d'),
+      safeJson(`https://corsproxy.io/?${encodeURIComponent('https://query1.finance.yahoo.com/v8/finance/chart/CL%3DF?interval=1d&range=1d')}`),
     ])
 
     const cad    = fx?.rates?.CAD?.toFixed(4) ?? '—'
