@@ -205,104 +205,6 @@ function MarketWidget() {
   )
 }
 
-// ── News ─────────────────────────────────────────────────
-// Guardian uses their official open API (test key is officially supported)
-// All RSS sources go through rss2json which handles parsing server-side
-const NEWS_SOURCES = [
-  { id: 'guardian',   label: 'The Guardian',  type: 'guardian' },
-  { id: 'hn',         label: 'Hacker News',   type: 'hn' },
-  { id: 'bbc',        label: 'BBC News',      type: 'rss', rss: 'https://feeds.bbci.co.uk/news/rss.xml' },
-  { id: 'techcrunch', label: 'TechCrunch',    type: 'rss', rss: 'https://techcrunch.com/feed/' },
-  { id: 'ars',        label: 'Ars Technica',  type: 'rss', rss: 'https://feeds.arstechnica.com/arstechnica/index' },
-  { id: 'cnn',        label: 'CNN',           type: 'rss', rss: 'http://rss.cnn.com/rss/edition.rss' },
-]
-const NEWS_SOURCE_KEY = 'news-source'
-
-function fmtDate(str) {
-  if (!str) return ''
-  const d = new Date(str)
-  return isNaN(d) ? '' : d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
-}
-
-async function fetchSource(source) {
-  if (source.type === 'hn') {
-    const res  = await fetch('https://hn.algolia.com/api/v1/search?tags=front_page&hitsPerPage=5')
-    const data = await res.json()
-    return data.hits.map(h => ({
-      title: h.title,
-      url:   h.url || `https://news.ycombinator.com/item?id=${h.objectID}`,
-      meta:  `${h.points} pts · ${h.author}`,
-    }))
-  }
-  if (source.type === 'guardian') {
-    const res  = await fetch('https://content.guardianapis.com/search?api-key=test&page-size=5&show-fields=trailText')
-    const data = await res.json()
-    return data.response.results.map(r => ({
-      title: r.webTitle,
-      url:   r.webUrl,
-      meta:  fmtDate(r.webPublicationDate),
-    }))
-  }
-  // RSS via rss2json — handles all XML parsing server-side
-  const res  = await fetch(`https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(source.rss)}&count=5`)
-  const data = await res.json()
-  if (data.status !== 'ok') throw new Error(data.message || 'feed error')
-  return data.items.map(i => ({
-    title: i.title,
-    url:   i.link,
-    meta:  fmtDate(i.pubDate),
-  }))
-}
-
-function NewsWidget() {
-  const [sourceId, setSourceId] = useState(() => localStorage.getItem(NEWS_SOURCE_KEY) || 'bbc')
-  const [stories,  setStories]  = useState([])
-  const [status,   setStatus]   = useState('loading')
-
-  const source = NEWS_SOURCES.find(s => s.id === sourceId) || NEWS_SOURCES[0]
-
-  useEffect(() => {
-    setStatus('loading')
-    setStories([])
-    fetchSource(source)
-      .then(items => { setStories(items); setStatus('ok') })
-      .catch(() => setStatus('error'))
-  }, [source.id])
-
-  function changeSource(id) {
-    localStorage.setItem(NEWS_SOURCE_KEY, id)
-    setSourceId(id)
-  }
-
-  return (
-    <div className="news-widget">
-      <div className="news-header">
-        <span className="news-title">Top Stories</span>
-        <select
-          className="news-source-select"
-          value={sourceId}
-          onChange={e => changeSource(e.target.value)}
-        >
-          {NEWS_SOURCES.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
-        </select>
-      </div>
-      {status === 'loading' && <div className="news-loading">Loading stories…</div>}
-      {status === 'error'   && <div className="news-loading">Couldn't load — try another source</div>}
-      {status === 'ok' && (
-        <ol className="news-list">
-          {stories.map((s, i) => (
-            <li key={i} className="news-item">
-              <a href={s.url} target="_blank" rel="noopener noreferrer" className="news-link">
-                {s.title}
-              </a>
-              <span className="news-meta">{s.meta}</span>
-            </li>
-          ))}
-        </ol>
-      )}
-    </div>
-  )
-}
 
 export default function HomePage({ pages, user, onCreate, onOpen, onDelete, onUpdate }) {
   const [sections,    setSections]    = useState(loadSections)
@@ -523,9 +425,6 @@ export default function HomePage({ pages, user, onCreate, onOpen, onDelete, onUp
 
       {/* Todo summary */}
       {pages.length > 0 && <TodoSummary pages={pages} onOpen={onOpen} />}
-
-      {/* News */}
-      <NewsWidget />
 
       {pages.length === 0 ? (
         <div className="home-empty">
